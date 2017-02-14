@@ -16,6 +16,7 @@ from simulate import plotRowHistogram
 from simulate import plotMatrixHistogram
 from make_toy_data import generate_random_A
 from sample import sample
+from eq28 import eq28
 
 # --- Helper Functions --- # 
 # Collapsed Likelihood 
@@ -173,16 +174,18 @@ def sample_pi_next( pi_min , alpha , data_count ):
 
 #To avoid errors, this is slow
 #find mu_star the last 
-def find_mu_star(Z):
-    Z_sum = Z.sum(axis=0)
+def find_mu_star(Z,mu):
+    Z_sum = np.asarray(Z.sum(axis=0))[0]
     mu_star = 0
     for i in range(Z.shape[1]):
         if Z_sum[i] > 0:
             mu_star = mu[i]
+    if mu_star == 0:
+        print('zero error')
     return mu_star
 
 def find_K_dagger(Z):
-    Z_sum = Z.sum(axis=0)
+    Z_sum = np.asarray(Z.sum(axis=0))[0]
     K_dagger = 1
     for i in range(Z.shape[1]-1,0,-1):
         if Z_sum[i] > 0:
@@ -225,7 +228,8 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     mu.append(SPST.beta.rvs(alpha,1)) 
     mu.append(SPST.beta.rvs(alpha,1)*mu[0])
     Z = np.transpose(np.matrix(SPST.bernoulli.rvs(mu[0],size=data_count)))
-    A = generate_random_A(1,D)
+    Z = np.hstack((Z,np.zeros((N,1))))
+    A = generate_random_A(2,D)
     K_active = Z.shape[1]
     s = SPST.uniform(0,mu[0])
     K_star = 0
@@ -247,16 +251,18 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
         
         #From paper, sample slice, extend matrix (mu,Z,A), Z, A, mu (order is probably irrelevant)
         #Sampling slice_var
-        mu_star = find_mu_star(Z)
+        mu_star = find_mu_star(Z,mu)
         #sample s
         s = SPST.uniform.rvs(0,mu_star)
         #extend matrix (mu,K_star,K_dagger,Z,A)
         old_K_dagger = K_dagger
         #you must generate mu until mu < s
-        while mu[len(mu)-1] > s:
-            mu.append(sample(mu,alpha,1000))
+        len_mu = len(mu)
+        while mu[len_mu-1] > s:
+            mu.append(sample(mu,alpha,N,1000))
+            len_mu = len_mu+1
         K_star = find_K_star(mu,s)    
-        K_dagger = len(mu)
+        K_dagger = len(mu) - 1
         new_features = K_dagger - old_K_dagger
         Z = np.hstack((Z,np.zeros((N,new_features))))
         #Take Note! generate_random_A has sigma_a = 5.0, you did not pass it in
@@ -265,12 +271,18 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
         for i in range(N):
             for k in range(K_dagger):
                 data_row = data_set[i,:]
-                Z_one = np.copy(Z[i,:])
-                Z_zero = np.copy(Z[i,:])
-                Z_one[k] = 1
+#                Z_one = np.squeeze(np.copy(Z[i,:]))
+#                Z_zero = np.squeeze(np.copy(Z[i,:]))
+                Z_one = np.asarray(np.copy(Z[i,:]))[0]
+                Z_zero = np.asarray(np.copy(Z[i,:]))[0]
+                try: 
+                    Z_one[k] = 1
+                except IndexError:
+                    print('IndexError')
+                    
                 Z_zero[k] = 0
-                like_one = ullikelihood(data_row,Z_one,A)
-                like_zero = ullikelihood(data_row,Z_zero,A)
+                like_one = ullikelihood(np.matrix(data_row),Z_one,A)
+                like_zero = ullikelihood(np.matrix(data_row),Z_zero,A)
                 shift = max([like_one,like_zero])
                 like_one = like_one - shift
                 like_zero = like_zero - shift
@@ -279,12 +291,17 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                     mu_star_zero = mu_star
                 else: 
                     mu_star_one = mu_star
-                    mu_star_zero = find_mu_star(Z)
+                    #probably not necessary
+                    mu_star_zero = find_mu_star(Z,mu)
                 mu_k = mu[k]
                 mu_frac_one = float(mu_k)/mu_star_one
                 #Note the 1 - mu_k
-                mu_frac_zero = float(1 - mu_k)/mu_star_zero
+                try:
+                    mu_frac_zero = float(1 - mu_k)/mu_star_zero
+                except ZeroDivisionError:
+                    print('ZeroDivisionError')
                 update_probability = float(mu_frac_one*np.exp(like_one))/(mu_frac_one*np.exp(like_one) + mu_frac_zero*np.exp(like_zero))
+                #print(update_probability)
                 if (math.isnan(update_probability)):
                     print('Nan update')
                     update_probability = 0
@@ -294,8 +311,20 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                     print('ValueError') 
                 
         #Update A
-        
+        A = resample_A(data_set,Z,sigma_a,sigma_n)
         #Update mu
+        #try:
+        mu = eq28(mu,Z,alpha,K_dagger+1,N,1000)
+        print('THIS IS MU')
+        print(mu)
+        if mu is None:
+            print('NONETYPE')
+#        except (IndexError,TypeError):
+#            print('IndexError')
+#        try:
+#            mu[K_dagger] = sample(mu,alpha,N,1000)
+#        except IndexError:
+#            print('IndexError')
         
             
                 
