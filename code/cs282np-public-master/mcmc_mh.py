@@ -102,7 +102,7 @@ def lpriorZ( Z , alpha ):
     for j in range(K):
         for j in range(N):
             m[j] = m[j] + Z[i][j]
-	
+    
     harmonic = 0
     K = [0 for x in range(len(Z[0]))]
     limit = [ 0 for x in range(len(Z[0]))]
@@ -114,10 +114,10 @@ def lpriorZ( Z , alpha ):
         for j in range(len(Z[1])):
             if Z[i][j] == 1:
                 limit[i] = j
-    K[0] = limit[0]	
+    K[0] = limit[0]    
     for i in range(1,len(Z[0])):
         K[i] = limit[i] - limit[i-1]
-	
+    
 
     prod1 = 1
     for i in range(len(Z[0])):
@@ -125,7 +125,7 @@ def lpriorZ( Z , alpha ):
     prod2 = 1
     for k in range(len(Z[1])):
         (math.factorial(len(Z[0]) - m[k]) * math.factorial(m[k]-1)) / math.factorial(N)
-    	
+        
     lp = alpha**(len(Z[1])) / ( prod1) * np.exp(-alpha * harmonic) * prod2
 
     return lp 
@@ -204,7 +204,7 @@ def find_K_star(mu,s):
 
 
 
-	
+    
 
 #equation 25
 #you pass mu[k-1]
@@ -263,7 +263,7 @@ def mh_old_mu(m_k, mu_prev, mu_next, data_count, sigma_g, T=100):
             mu = mu_new
             t+=1
     return mu
-	
+    
 def generate_mu(alpha,number):
     mu = list()
     for i in range(number):
@@ -297,7 +297,7 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     
     mu = list()
     #break first two sticks to avoid getting stuck in base case
-    init = 4
+    init = 1
     mu = generate_mu(alpha,init)
     
     Z = np.zeros((N,init))
@@ -314,7 +314,7 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     K_active = Z.shape[1]
     s = SPST.uniform(0,mu[0])
     K_star = 0
-    K_dagger = 3
+    K_dagger = init-1
     
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
@@ -347,16 +347,18 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
             len_mu = len_mu+1
             mu.append(tmp)
             K_star = find_K_star(mu,s) 
-        
-        print('THIS IS MU')
-        print(mu)
+
         K_dagger = len(mu) - 1
         new_features = K_dagger - old_K_dagger
-        Z = np.hstack((Z,np.zeros((N,new_features))))
+        Z_new = np.zeros((N,new_features))
+        for j in range(new_features):
+            Z_new[:,j] = SPST.bernoulli.rvs(mu[j+old_K_dagger+1],size=N)
+        Z = np.hstack((Z,Z_new))
+        #Z = np.hstack((Z,np.zeros((N,new_features))))
         #print(Z)
         #Take Note! generate_random_A has sigma_a = 5.0, you did not pass it in
-        A = np.vstack((A,generate_random_A(new_features,D))) 
-        #A = resample_A(data_set,Z,sigma_a,sigma_n)
+        #A = np.vstack((A,generate_random_A(new_features,D))) 
+        A = resample_A(data_set,Z,sigma_a,sigma_n)
         #Update Z
         for i in range(N):
             for k in range(K_star+1):
@@ -376,10 +378,6 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                 like_zero = like_zero - shift
                 #print('like one')
                 #print(like_one)
-                print('column')
-                print(k)
-                print('like zero')
-                print(like_zero)
                 Z_one_matrix = np.matrix(np.copy(Z))
                 Z_one_matrix[i,k] = 1
                 mu_star_one = find_mu_star(Z_one_matrix,mu)
@@ -410,14 +408,12 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                     Z[i,k] = SPST.bernoulli.rvs(update_probability)
                 except ValueError:
                     print('ValueError') 
-                if k == 1 or k == 0:
-                    print('All Zeros')
         #print(Z)
                 
         #Update A
         #STOPPING ALL A UPDATES
         A = resample_A(data_set,Z,sigma_a,sigma_n)
-	
+    
         m = [ Z[:,k].sum() for k in range(K_dagger)]
         mu[0] = mh_old_mu(m[0], 1, mu[1], data_count, (1-mu[1])*0.05, 100)
         for k in range(1,K_dagger-1):
