@@ -1,6 +1,7 @@
 # Imports 
 from make_toy_data import generate_data 
 from mcmc_mh import cgibbs_sampler , ugibbs_sampler , slice_sampler 
+from variational import run_vi
 #from variational import run_vi 
 import matplotlib.pyplot as plt 
 import numpy as np 
@@ -13,10 +14,10 @@ data_type = 'gg'
 data_set , Z , A = generate_data( data_count , data_type )
 
 # What kind of inference?
-#inference_algorithm = 'ugibbs'
+#inference_algorithm = 'cgibbs'
 # inference_algorithm = 'ugibbs' 
-inference_algorithm = 'slice'
-# inference_algorithm = 'vi' 
+#inference_algorithm = 'slice'
+inference_algorithm = 'vi' 
 
 # Inference Parameters (note, these do not necessarily match the true parameters!) 
 alpha = 2.0  

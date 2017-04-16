@@ -173,7 +173,9 @@ def sample_pi_next( pi_min , alpha , data_count ):
 #To avoid errors, this is slow
 #find mu_star the last 
 def find_mu_star(Z,mu):
+    Z = np.matrix(Z)
     Z_sum = np.asarray(Z.sum(axis=0))[0]
+#    Z_sum = np.asarray(Z.sum(axis=0))
     #print(Z_sum)
     mu_star = 1.0
     cnt= 0 
@@ -184,7 +186,9 @@ def find_mu_star(Z,mu):
     return mu_star
 
 def find_K_dagger(Z):
+    Z = np.matrix(Z)
     Z_sum = np.asarray(Z.sum(axis=0))[0]
+#    Z_sum = np.asarray(Z.sum(axis=0))
     K_dagger = 1
     for i in range(Z.shape[1]-1,0,-1):
         if Z_sum[i] > 0:
@@ -286,18 +290,9 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     Z_set = list()
     A_set = list() 
     
-    # Initialize the variables 
-    # Everything Zero Indexed 
-    #Z will be initialized a single column, bernoulli flipping p=mu_1
-    #mu_1 will be initialized according to stick breaking Beta(alpha,1)
-    #s initialize unif(0,mu_1)
-    #K_star is maximal feature such that mu_k_star > s, so init = 0
-    #K_dagger init =  1
-    # In order, mu, Z, s, K_star, K_dagger
-    
     mu = list()
     #break first two sticks to avoid getting stuck in base case
-    init = 1
+    init = 4
     mu = generate_mu(alpha,init)
     
     Z = np.zeros((N,init))
@@ -318,22 +313,7 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
-        #print(Z)
-        print(Z.shape[0] ,Z.shape[1])
-        
-        
-        # Sampling existing pi
-        
-        # Sampling slice_var
-            
-        # Extending the matrix
-        
-        # Sampling existing Z
-
-        # Sampling existing A 
-        
-        #From paper, sample slice, extend matrix (mu,Z,A), Z, A, mu (order is probably irrelevant)
-        #Sampling slice_var
+        print(mcmc_iter)
         mu_star = find_mu_star(Z,mu)
         #sample s
         s = SPST.uniform.rvs(0,mu_star)
@@ -341,18 +321,17 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
         old_K_dagger = K_dagger
         #you must generate mu until mu < s
         len_mu = len(mu)
-        #print(len_mu)
         while mu[len_mu-1] > s:
             tmp = mh_new_mu(mu[len_mu-1], alpha, N, mu[len_mu-1] * 0.05, T=100) 
             len_mu = len_mu+1
             mu.append(tmp)
-            K_star = find_K_star(mu,s) 
-
+        K_star = find_K_star(mu,s) 
         K_dagger = len(mu) - 1
         new_features = K_dagger - old_K_dagger
         Z_new = np.zeros((N,new_features))
         for j in range(new_features):
             Z_new[:,j] = SPST.bernoulli.rvs(mu[j+old_K_dagger+1],size=N)
+        #Z_copy = np.copy(Z)
         Z = np.hstack((Z,Z_new))
         #Z = np.hstack((Z,np.zeros((N,new_features))))
         #print(Z)
@@ -376,30 +355,19 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                 shift = max([like_one,like_zero])
                 like_one = like_one - shift
                 like_zero = like_zero - shift
-                #print('like one')
-                #print(like_one)
                 Z_one_matrix = np.matrix(np.copy(Z))
                 Z_one_matrix[i,k] = 1
                 mu_star_one = find_mu_star(Z_one_matrix,mu)
                 Z_zero_matrix = Z_one_matrix
                 Z_zero_matrix[i,k] = 0
                 mu_star_zero = find_mu_star(Z_zero_matrix,mu)
-#                if k == K_dagger:
-#                    mu_star_one = mu[k]
-#                    mu_star_zero = mu_star
-#                else: 
-#                    mu_star_one = mu_star
-#                    mu_star_zero = find_mu_star(Z,mu)
                 mu_k = mu[k]
                 mu_frac_one = float(mu_k)/mu_star_one
-                #Note the 1 - mu_k
                 try:
                     mu_frac_zero = float(1 - mu_k)/mu_star_zero
                 except ZeroDivisionError:
                     print('ZeroDivisionError')
                 update_probability = float(mu_frac_one*np.exp(like_one))/(mu_frac_one*np.exp(like_one) + mu_frac_zero*np.exp(like_zero))
-                #print('update probability')
-                #print(update_probability)
                 
                 if (math.isnan(update_probability)):
                     print('Nan update')
@@ -408,10 +376,7 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
                     Z[i,k] = SPST.bernoulli.rvs(update_probability)
                 except ValueError:
                     print('ValueError') 
-        #print(Z)
-                
-        #Update A
-        #STOPPING ALL A UPDATES
+
         A = resample_A(data_set,Z,sigma_a,sigma_n)
     
         m = [ Z[:,k].sum() for k in range(K_dagger)]
@@ -419,25 +384,12 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
         for k in range(1,K_dagger-1):
             mu[k] = mh_old_mu(m[k], mu[k-1], mu[k+1], data_count, (mu[k-1]-mu[k+1])*0.05, 100)
         mu[K_dagger]= mh_new_mu(mu[K_dagger-1],alpha, data_count, mu[K_dagger-1] * 0.05, 100)
-#        mu[0] = mh_old_mu(m[0], 1, mu[1], data_count, (1-mu[1])*0.05, 100)
-#        for k in range(1,K_dagger-1):
-#            mu[k] = mh_old_mu(m[k], mu[k-1], mu[k+1], data_count, (mu[k-1]-mu[k+1])*0.05, 100)
-#        mu[K_dagger]= mh_new_mu(mu[K_dagger-1],alpha, data_count, mu[K_dagger-1] * 0.05, 100)
-        
-        #print(mu)
+
                 
         # Compute likelihoods and store 
         ll_set[ mcmc_iter ] = ullikelihood( data_set , Z , A , sigma_n ) 
-        #lp_set[ mcmc_iter ] = lpriorA( A , sigma_a ) + lpriorZ( Z , alpha ) 
-        #A_set.append( A ); Z_set.append( Z ) 
-
-        # print
-        #print mcmc_iter , Z.shape[1] , ll_set[ mcmc_iter ] , lp_set[ mcmc_iter ] 
-        
-        
         Z_set.append(Z)
-        A_set.append(A)
-        #ll_set = 0
+        A_set.append(A[:K_star+1,:])
         lp_set = 0
     # return 
     return Z_set , A_set , ll_set , lp_set 
@@ -460,6 +412,7 @@ def ugibbs_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 
     active_K = 1      
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
+        print(mcmc_iter)
         # Sampling existing A 
         A = resample_A(data_set,Z,sigma_a,sigma_n)
         for n in range(data_count):
@@ -538,7 +491,7 @@ def ugibbs_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 
 
 # The collapsed LG model from G&G.  In a more real setting, one would
 # want to additionally sample/optimize the hyper-parameters!
-def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=35 , init_Z=None ): 
+def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=5 , init_Z=None ): 
     #no idea how to set K_max
     data_count = data_set.shape[0] 
     N = data_count
@@ -547,12 +500,14 @@ def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=35 , 
     lp_set = np.zeros( [ iter_count ] ) 
     Z_set = list()
     A_set = list() 
+    K_set = list()
     # Initialize Z randomly (explore how different initializations matter)
     #G&G initialization
     Z = np.transpose(np.matrix(SPST.bernoulli.rvs(0.5,size=data_count)))
     active_K = 1    
     # MCMC loop 
     for mcmc_iter in range(iter_count):
+        print(mcmc_iter)
         for n in range(data_count):
             for k in range(active_K): 
                 #existing feature update
@@ -616,10 +571,10 @@ def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=35 , 
         # can visualize it later
         ll_set[ mcmc_iter ] = cllikelihood( data_set , Z , sigma_a , sigma_n )
         #lp_set[ mcmc_iter ] = lpriorZ( Z , alpha ) 
-        A = mean_A( data_set , Z , sigma_a , sigma_n )
-        A_set.append( A ); 
-        Z_set.append(Z)
-
+        #A = mean_A( data_set , Z , sigma_a , sigma_n )
+        #A_set.append( A ); 
+        #Z_set.append(Z)
+        #K_set.append(active_K)
         # print
         #print mcmc_iter , Z.shape[1] , ll_set[ mcmc_iter ] , lp_set[ mcmc_iter ] 
         
@@ -636,26 +591,27 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 
 if __name__ == "__main__":
     from make_toy_data import generate_data
-    iterate = 35
+    iterate = 5
     alpha = 2
     data_count = 50
-    data_set , Z , A = generate_data( data_count , 'gg' ) 
+    data_set , Z , A = generate_data( data_count , 'infinite-random' ) 
     print('THIS IS X')
     print(data_set)
-    Z_set, A_set, ll_set, lp_set = slice_sampler(data_set, alpha)
-    print('THIS IS APPROX')
-    approx = Z_set[34]*A_set[34]
-    print(approx)
-    print(ll_set)
-    #Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha)
-#    Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha,iter_count = iterate)
-#    Z_final = Z_set[iterate-1]
-#    plotRowHistogram(Z_final)
-#    plotMatrixHistogram(Z_final)
-#    title = 'collapsed: log likelihood vs. iterations'
-#    x_axis = 'iterations'
-#    y_axis = 'log likelihood'
-#    data_x = [i for i in range(1,iterate+1)]
-#    data_y = ll_set
-#    plot(title,x_axis,y_axis,data_x,data_y)
+    #Z_set, A_set, ll_set, lp_set = slice_sampler(data_set, alpha)
+    #print('THIS IS APPROX')
+    #approx = Z_set[34]*A_set[34]
+    #print(approx)
     #print(ll_set)
+    #K_set, Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha)
+    Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha,iter_count = iterate)
+
+    Z_final = Z_set[iterate-1]
+    plotRowHistogram(Z_final)
+    plotMatrixHistogram(Z_final)
+    title = 'Slice Sampler: log likelihood vs. iterations'
+    x_axis = 'iterations'
+    y_axis = 'log likelihood'
+    data_x = [i for i in range(1,iterate+1)]
+    data_y = ll_set
+    plot(title,x_axis,y_axis,data_x,data_y)
+    print(ll_set)
