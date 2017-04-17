@@ -12,9 +12,6 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb 
 
-print("Hello")
-
-
 #size of paintbox
 F = 2 #features
 D = 2**F #discretization
@@ -51,7 +48,6 @@ def pb_init(D,F):
     
 def draw_Z(pb,D,F,N,T):
     draws = np.random.multinomial(N, [1.0/D]*D, size=1)
-    print(draws)
     Z = np.zeros((N,F))
     cum_draws = np.cumsum(draws)
     #generate Z
