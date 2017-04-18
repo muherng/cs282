@@ -1,0 +1,209 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr 15 22:50:22 2017
+
+@author: morrisyau
+"""
+
+import numpy as np
+import numpy.random as npr 
+import scipy.special as sps
+import scipy.stats as SPST
+import pdb
+from generate_data import generate_data,pb_init,draw_Z 
+
+#There are a variety of edge case considerations when it comes to vectorized 
+#form of the paintboxes, this leads me to believe trees are the right idea
+#it turns out you can query trees very quickly 
+#update for trees basically same speed, and much easier to understand
+#Next time write down a pro-con functionality list and think it through
+#vector representation of paintbox
+def vectorize(pb):
+    F,D = pb.shape
+    vec = np.zeros(D)
+    for i in range(D):
+        #not proud of this at all
+        try:
+            num = int(''.join(map(str, pb[:,i])).replace(".0",""),2)           
+        except ValueError:
+            print("ValueError")
+        vec[num] += 1
+    return vec
+
+#paintbox representation of vector
+def devectorize(vec):
+#    try: 
+    vec = map(int,vec)
+#    except ValueError:
+#        print("ValueError")
+    total = int(np.sum(vec))
+    unroll = np.zeros(total)
+    pb = np.zeros((F,D))
+    flag = 0
+    for i in range(len(vec)):
+        unroll[flag:flag+vec[i]] = i
+        flag = flag + vec[i]
+    lof_unroll = unroll[::-1] 
+    #print("lof_unroll")
+    #print(lof_unroll)
+    for j in range(total):
+        binary = map(int,"{0:b}".format(int(lof_unroll[j])))
+        pad_binary = [0]*(F-len(binary)) + binary
+        pb[:,j] = pad_binary
+        #print(pb)
+    return pb
+
+#probability of Z given the vectorized paintbox 
+#henceforth we will be working over vectorized paintboxes.
+#we unvectorize only for visual debugging.  
+def Z_vec(Z,vec,D):
+    N,F = Z.shape
+    zp = 1
+    for i in range(N):
+        z_index = int(''.join(map(str, Z[i,:])).replace(".0",""),2)
+        zp = zp*float(vec[z_index])/D
+    return zp
+
+#performs Z_vec for a single row
+def Z_paintbox(z_row,W,pb,sig,D):
+    vec = vectorize(pb)
+    z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
+    zp = float(vec[z_index])/D
+    return zp
+    
+def log_data_zw(row_y,row_zw,sig):
+    delta = row_y - row_zw
+    delta_square = np.square(delta)
+    delta_sum = np.sum(delta_square)
+    ll =  -1./(2*sig**2) * delta_sum
+    return ll
+    
+def log_likelihood(Y,Z,W,sig): 
+    
+    return 0
+    
+def sample_Z(Y,Z,W,pb,D,F,N,T):
+    for i in range(N):
+        for j in range(F):
+            row = Z[i,:]
+            row_one = np.copy(row)
+            row_zero = np.copy(row)
+            row_one[j] = 1
+            row_zero[j] = 0
+            zw_one = np.dot(row_one,W)
+            zw_zero = np.dot(row_zero,W)
+            yz_one = log_data_zw(Y[i,:],zw_one,sig)
+            yz_zero = log_data_zw(Y[i,:],zw_zero,sig)
+            zp_one = Z_paintbox(row_one,W,pb,sig,D)
+            zp_zero = Z_paintbox(row_zero,W,pb,sig,D)
+            p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
+            try:
+                Z[i,j] = np.random.binomial(1,p_one)
+            except ValueError:
+                print("ValueError")
+    return Z
+
+#Algorithm: Perform tree updates on vectorized paintbox
+def sample_pb(Y,Z,W,pb,D,F,N,T,res):
+    vec = vectorize(pb)
+    updates = 2**F-1
+    #iterate over features (row of paintbox)
+    for i in range(F):
+        #iterate over nodes j in tree layer i 
+        for j in range(2**i):
+            mat_vec = np.tile(vec,(res+1,1))
+            start_zero = j*2**(F-i)
+            end_zero = j*2**(F-i) + 2**(F-i-1) - 1
+            start_one =  j*2**(F-i) + 2**(F-i-1)
+            end_one = (j+1)*2**(F-i) - 1
+            tot = np.sum(vec[start_zero:end_one+1])
+            if tot == 0:
+                continue
+            else:
+                old_prob = float(np.sum(vec[start_one:end_one+1]))/tot 
+                unit = float(np.sum(vec[start_zero:end_one+1]))/res
+                roulette = []
+                for k in range(res+1):
+                    new_prob = float(k)/res
+                    if old_prob != new_prob:
+                        if old_prob == 0:
+                            ratio_zero = float((1 - new_prob))/(1 - old_prob) 
+                            #print("ratio zero")
+                            #print(ratio_zero)
+                            mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
+                            #print("unitk")
+                            #print(unit*k)                        
+                            mat_vec[k,start_one] = unit*k
+                        elif old_prob == 1:
+                            ratio_one = float(new_prob)/old_prob
+                            #print("ratio one")
+                            #print(ratio_one)
+                            mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
+                            #print("unit-res-k")
+                            mat_vec[k,end_zero] = unit*(res-k)
+                            #print(unit*(res-k))
+                        else:        
+                            ratio_one = float(new_prob)/old_prob
+                            ratio_zero = float((1 - new_prob))/(1 - old_prob)
+#                            print("ratio one and zero")
+#                            print(ratio_one)
+#                            print(ratio_zero)
+#                            print("new and old")
+#                            print(new_prob)
+#                            print(old_prob)
+                            mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
+                            mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
+                    roulette.append(Z_vec(Z,mat_vec[k,:],D))
+                    normal_roulette = [1.0/np.sum(roulette) * r for r in roulette]
+                #Not proud of this line
+                #print("NORMAL ROULETTE")
+                #print(normal_roulette)
+                #print("MAT VEC")
+                #print(mat_vec)
+                chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+                vec = mat_vec[chosen,:]
+                #print("VEC")
+                #print(vec)
+                #print("paintbox")
+                #print(devectorize(vec))
+    pb = devectorize(vec)
+    return pb
+        
+def gibbs_sample(Y,sig,iterate,D,F,N,T):
+    W = np.eye(F)
+    pb = pb_init(D,F)
+    Z = draw_Z(pb,D,F,N,T)
+    ll_list = []
+    for it in range(iterate):
+        #sample Z
+        #print("SAMPLE Z")
+        Z = sample_Z(Y,Z,W,pb,D,F,N,T)
+        #sample paintbox
+        #print("SAMPLE PB")
+        pb = sample_pb(Y,Z,W,pb,D,F,N,T,res)
+        ll_list.append(log_likelihood(Y,Z,W,sig))
+        
+    
+    return (ll_list,Z,pb)
+    
+
+if __name__ == "__main__":
+    #for now res is multiple of 2 because of pb_init (not fundamental problem )
+    res = 2 #all conditionals will be multiples of 1/res 
+    F = 5 #features
+    D = res**F #discretization
+    T = F #length of datapoint
+    N = 100 #data size
+    Y = generate_data(res,D,F,N,T,sig)
+    iterate = 10
+    #print("DATA")
+    #print(Y)
+    #init variables
+    ll_list,Z,pb = gibbs_sample(Y,sig,iterate,D,F,N,T)
+    #print(Z)
+    print(pb)
+    
+    
+    
+    
