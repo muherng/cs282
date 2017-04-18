@@ -13,8 +13,9 @@ import scipy.stats as SPST
 import pdb 
 
 #size of paintbox
+res = 2
 F = 2 #features
-D = 2**F #discretization
+D = res**F #discretization
 T = F #length of datapoint
 
 #data size 
@@ -30,6 +31,7 @@ sig = 0.1
 #generate data
 #set paintbox to be anything
 
+#partition paintbox
 def pb_partition(D,F):
     pb = np.zeros((F,D))
     for i in range(F):
@@ -39,7 +41,47 @@ def pb_partition(D,F):
         except ValueError: 
             print("Value Error")
     return pb
-    
+
+#uniform draw from random prior
+#arbitrary paintbox is easy, legal paintbox 
+def pb_random(res,D,F):
+    pb = np.zeros((F,D))
+    row_count = [D]
+    for i in range(F):
+        new_row_count = []
+        #iterate over nodes j in tree layer i 
+        #has to be better way of doing this
+#        if i != 0:
+#            ind = pb[i-1,0]
+#            count = 0
+#            for k in range(D):
+#                if ind == pb[i-1,k]:   
+#                    count+=1
+#                else:
+#                    row_count.append(count)
+#                    ind = 1-ind
+#                    count = 1
+#            row_count.append(count)
+#        else:
+#            row_count.append(D)
+        cum_count = np.cumsum(row_count)
+        cum_count = np.insert(cum_count,0,0)
+        for j in range(2**i):
+            try:
+                unit = row_count[j]/res
+            except IndexError:
+                print("IndexError")
+            draw = int(np.where(np.random.multinomial(1,[1./(res+1)]*(res+1)) == 1)[0])
+            print(draw)
+            try:
+                pb[i,cum_count[j]:cum_count[j+1]] = [1]*unit*draw + [0]*unit*(res-draw)
+            except IndexError:
+                print("IndexError")
+            new_row_count = new_row_count + [unit*draw,unit*(res-draw)]
+        row_count = new_row_count
+    return pb
+#1/2 tree intialization  
+#note that you can't do this for res not divisible by 2  
 def pb_init(D,F):
     pb = np.zeros((F,D))
     for i in range(F):
@@ -61,8 +103,10 @@ def draw_Z(pb,D,F,N,T):
             Z[cum_draws[i-1]:cum_draws[i],:] = data_chunk
     return Z
 
-def generate_data(D,F,N,T,sig):
-    pb = pb_partition(D,F)
+def generate_data(res,D,F,N,T,sig):
+    #pb = pb_partition(D,F)
+    pb = pb_random(res,D,F)
+    print("PAINTBOX GENERATING")
     print(pb)
     #This line is problematic, does not adapt to T
     W = np.eye(F)
@@ -75,7 +119,7 @@ def generate_data(D,F,N,T,sig):
     Y = np.dot(Z,W) + E
     return Y    
     
-Y = generate_data(D,F,N,T,sig)
+Y = generate_data(res,D,F,N,T,sig)
 print(Y)
 
 
