@@ -11,7 +11,10 @@ import numpy.random as npr
 import scipy.special as sps
 import scipy.stats as SPST
 import pdb
-from generate_data import generate_data,pb_init,draw_Z 
+import matplotlib.pyplot as plt
+from generate_data import generate_data,pb_init,draw_Z,scale 
+import profile
+from fractions import gcd
 
 #There are a variety of edge case considerations when it comes to vectorized 
 #form of the paintboxes, this leads me to believe trees are the right idea
@@ -33,10 +36,7 @@ def vectorize(pb):
 
 #paintbox representation of vector
 def devectorize(vec):
-#    try: 
     vec = map(int,vec)
-#    except ValueError:
-#        print("ValueError")
     total = int(np.sum(vec))
     unroll = np.zeros(total)
     pb = np.zeros((F,D))
@@ -45,8 +45,6 @@ def devectorize(vec):
         unroll[flag:flag+vec[i]] = i
         flag = flag + vec[i]
     lof_unroll = unroll[::-1] 
-    #print("lof_unroll")
-    #print(lof_unroll)
     for j in range(total):
         binary = map(int,"{0:b}".format(int(lof_unroll[j])))
         pad_binary = [0]*(F-len(binary)) + binary
@@ -66,8 +64,7 @@ def Z_vec(Z,vec,D):
     return zp
 
 #performs Z_vec for a single row
-def Z_paintbox(z_row,W,pb,sig,D):
-    vec = vectorize(pb)
+def Z_paintbox(z_row,W,vec,sig,D):
     z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
     zp = float(vec[z_index])/D
     return zp
@@ -83,7 +80,9 @@ def log_likelihood(Y,Z,W,sig):
     
     return 0
     
+#adjust this to accomodate W
 def sample_Z(Y,Z,W,pb,D,F,N,T):
+    vec = vectorize(pb)
     for i in range(N):
         for j in range(F):
             row = Z[i,:]
@@ -95,8 +94,8 @@ def sample_Z(Y,Z,W,pb,D,F,N,T):
             zw_zero = np.dot(row_zero,W)
             yz_one = log_data_zw(Y[i,:],zw_one,sig)
             yz_zero = log_data_zw(Y[i,:],zw_zero,sig)
-            zp_one = Z_paintbox(row_one,W,pb,sig,D)
-            zp_zero = Z_paintbox(row_zero,W,pb,sig,D)
+            zp_one = Z_paintbox(row_one,W,vec,sig,D)
+            zp_zero = Z_paintbox(row_zero,W,vec,sig,D)
             p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
             try:
                 Z[i,j] = np.random.binomial(1,p_one)
@@ -129,44 +128,21 @@ def sample_pb(Y,Z,W,pb,D,F,N,T,res):
                     if old_prob != new_prob:
                         if old_prob == 0:
                             ratio_zero = float((1 - new_prob))/(1 - old_prob) 
-                            #print("ratio zero")
-                            #print(ratio_zero)
-                            mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
-                            #print("unitk")
-                            #print(unit*k)                        
+                            mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]                       
                             mat_vec[k,start_one] = unit*k
                         elif old_prob == 1:
                             ratio_one = float(new_prob)/old_prob
-                            #print("ratio one")
-                            #print(ratio_one)
                             mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
-                            #print("unit-res-k")
                             mat_vec[k,end_zero] = unit*(res-k)
-                            #print(unit*(res-k))
                         else:        
                             ratio_one = float(new_prob)/old_prob
                             ratio_zero = float((1 - new_prob))/(1 - old_prob)
-#                            print("ratio one and zero")
-#                            print(ratio_one)
-#                            print(ratio_zero)
-#                            print("new and old")
-#                            print(new_prob)
-#                            print(old_prob)
                             mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
                             mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
                     roulette.append(Z_vec(Z,mat_vec[k,:],D))
                     normal_roulette = [1.0/np.sum(roulette) * r for r in roulette]
-                #Not proud of this line
-                #print("NORMAL ROULETTE")
-                #print(normal_roulette)
-                #print("MAT VEC")
-                #print(mat_vec)
                 chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
                 vec = mat_vec[chosen,:]
-                #print("VEC")
-                #print(vec)
-                #print("paintbox")
-                #print(devectorize(vec))
     pb = devectorize(vec)
     return pb
         
@@ -177,10 +153,10 @@ def gibbs_sample(Y,sig,iterate,D,F,N,T):
     ll_list = []
     for it in range(iterate):
         #sample Z
-        #print("SAMPLE Z")
+        print("SAMPLE Z")
         Z = sample_Z(Y,Z,W,pb,D,F,N,T)
         #sample paintbox
-        #print("SAMPLE PB")
+        print("SAMPLE PB")
         pb = sample_pb(Y,Z,W,pb,D,F,N,T,res)
         ll_list.append(log_likelihood(Y,Z,W,sig))
         
@@ -191,19 +167,23 @@ def gibbs_sample(Y,sig,iterate,D,F,N,T):
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
     res = 2 #all conditionals will be multiples of 1/res 
-    F = 5 #features
+    F = 10 #features
     D = res**F #discretization
     T = F #length of datapoint
     N = 100 #data size
-    Y = generate_data(res,D,F,N,T,sig)
+    Y,gen_pb = generate_data(res,D,F,N,T,sig)
+    gen_pb = scale(gen_pb)
+    plt.imshow(gen_pb,interpolation='nearest')
+    plt.show()
     iterate = 10
     #print("DATA")
     #print(Y)
     #init variables
+    #profile.run('gibbs_sample(Y,sig,iterate,D,F,N,T)') 
     ll_list,Z,pb = gibbs_sample(Y,sig,iterate,D,F,N,T)
     #print(Z)
+    pb = scale(pb)
+    plt.imshow(pb,interpolation='nearest')
+    plt.show()   
     print(pb)
-    
-    
-    
     

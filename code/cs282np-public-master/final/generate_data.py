@@ -11,6 +11,7 @@ import numpy.random as npr
 import scipy.special as sps
 import scipy.stats as SPST
 import pdb 
+from fractions import gcd
 
 #size of paintbox
 res = 2
@@ -28,8 +29,24 @@ W = np.eye(F)
 #noise parameter
 sig = 0.1
 
-#generate data
-#set paintbox to be anything
+def lcm(*numbers):
+    """Return lowest common multiple."""    
+    def lcm(a, b):
+        return (a * b) // gcd(a, b)
+
+def scale(pb):
+    F,D = pb.shape
+    lcm = (F * D) // gcd(F, D)
+    v_scale = lcm/F
+    h_scale = lcm/D
+    pb_scale = np.zeros((lcm,lcm))
+    for i in range(F):
+        for j in range(D):
+            try:
+                pb_scale[i*v_scale:(i+1)*v_scale,j*h_scale:(j+1)*h_scale] = pb[i,j] * np.ones((v_scale,h_scale))
+            except IndexError:
+                print("IndexError")
+    return pb_scale
 
 #partition paintbox
 def pb_partition(D,F):
@@ -72,7 +89,6 @@ def pb_random(res,D,F):
             except IndexError:
                 print("IndexError")
             draw = int(np.where(np.random.multinomial(1,[1./(res+1)]*(res+1)) == 1)[0])
-            print(draw)
             try:
                 pb[i,cum_count[j]:cum_count[j+1]] = [1]*unit*draw + [0]*unit*(res-draw)
             except IndexError:
@@ -106,8 +122,8 @@ def draw_Z(pb,D,F,N,T):
 def generate_data(res,D,F,N,T,sig):
     #pb = pb_partition(D,F)
     pb = pb_random(res,D,F)
-    print("PAINTBOX GENERATING")
-    print(pb)
+    #print("PAINTBOX GENERATING")
+    #print(pb)
     #This line is problematic, does not adapt to T
     W = np.eye(F)
     Y = np.zeros((N,T))
@@ -117,10 +133,9 @@ def generate_data(res,D,F,N,T,sig):
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
-    return Y    
+    return (Y,pb)    
     
-Y = generate_data(res,D,F,N,T,sig)
-print(Y)
+#Y,pb = generate_data(res,D,F,N,T,sig)
 
 
 
