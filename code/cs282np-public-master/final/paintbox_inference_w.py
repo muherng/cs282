@@ -64,47 +64,64 @@ def Z_vec(Z,vec,D):
     return zp
 
 #performs Z_vec for a single row
-def Z_paintbox(z_row,W,vec,sig,D):
+def Z_paintbox(z_row,vec,sig,D):
     z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
     zp = float(vec[z_index])/D
     return zp
     
-def log_data_zw(row_y,row_zw,sig):
-    delta = row_y - row_zw
-    delta_square = np.square(delta)
-    delta_sum = np.sum(delta_square)
+def log_data_zw(Y,Z,W,sig):
+    delta = Y - np.dot(Z,W)
+    delta_sum = np.trace(np.dot(delta.T,delta))
     ll =  -1./(2*sig**2) * delta_sum
     return ll
     
-def log_likelihood(Y,Z,W,sig): 
+def log_collapsed(Y,Z,sig,sig_w):
+    N,D = Y.shape
+    K = Z.shape[1]
+    try: 
+        tmp = np.linalg.inv(np.dot(Z.T, Z) + (float(sig)/sig_w)**2*np.eye(K))
+    except np.linalg.linalg.LinAlgError:
+        print('singular matrix')
+        
+    try:
+        tmp = np.eye(N)-np.dot(np.dot(Z, tmp), Z.T)
+    except ValueError:
+        print('Value Error')
+    tmp = -1/(2*sig**2)*np.trace(np.dot(np.dot(Y.T, tmp), Y))
+    #ll = np.exp(tmp)
+    try:
+        ll = tmp - (float(N*D)/2*np.log(2*np.pi)+(N-K)*D*np.log(sig)+K*D*np.log(sig_w)+float(D)/2*np.log(np.linalg.det(np.dot(Z.T,Z)+(float(sig)/sig_w)**2*np.eye(K))))
+    except np.linalg.linalg.LinAlgError:
+        print('LinAlgError')
     
-    return 0
+    return ll 
+    
     
 #adjust this to accomodate W
-def sample_Z(Y,Z,W,pb,D,F,N,T):
+def sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T):
     vec = vectorize(pb)
     for i in range(N):
         for j in range(F):
-            row = Z[i,:]
-            row_one = np.copy(row)
-            row_zero = np.copy(row)
-            row_one[j] = 1
-            row_zero[j] = 0
-            zw_one = np.dot(row_one,W)
-            zw_zero = np.dot(row_zero,W)
-            yz_one = log_data_zw(Y[i,:],zw_one,sig)
-            yz_zero = log_data_zw(Y[i,:],zw_zero,sig)
-            zp_one = Z_paintbox(row_one,W,vec,sig,D)
-            zp_zero = Z_paintbox(row_zero,W,vec,sig,D)
+            Z_one = np.copy(Z)
+            Z_zero = np.copy(Z)
+            Z_one[i,j] = 1
+            Z_zero[i,j] = 0
+            yz_one = log_collapsed(Y,Z_one,sig,sig_w)
+            yz_zero = log_collapsed(Y,Z_zero,sig,sig_w)
+            zp_one = Z_paintbox(Z_one[i,:],vec,sig,D)
+            zp_zero = Z_paintbox(Z_zero[i,:],vec,sig,D)
+            #numerical adjustment
+            yz_one = yz_one - yz_zero
+            yz_zero = 0
             p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
             try:
                 Z[i,j] = np.random.binomial(1,p_one)
             except ValueError:
-                print("ValueError")
+                print("ValueError Forever")
     return Z
 
 #Algorithm: Perform tree updates on vectorized paintbox
-def sample_pb(Y,Z,W,pb,D,F,N,T,res):
+def sample_pb(Y,Z,pb,D,F,N,T,res):
     vec = vectorize(pb)
     updates = 2**F-1
     #iterate over features (row of paintbox)
@@ -145,46 +162,55 @@ def sample_pb(Y,Z,W,pb,D,F,N,T,res):
                 vec = mat_vec[chosen,:]
     pb = devectorize(vec)
     return pb
-        
-def gibbs_sample(Y,sig,iterate,D,F,N,T):
+
+#find posterior mean of W 
+def mean_w(Y,Z):
+    N,K = Z.shape
+    W = np.dot(np.linalg.inv(np.dot(Z.T,Z) + (sig/sig_w)**2*np.eye(K)), np.dot(Z.T,Y))
+    return W
+      
+def gibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     W = np.eye(F)
     pb = pb_init(D,F)
     Z = draw_Z(pb,D,F,N,T)
     ll_list = []
+    W_list = []
     for it in range(iterate):
         #sample Z
         print("SAMPLE Z")
-        Z = sample_Z(Y,Z,W,pb,D,F,N,T)
+        Z = sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T)
         #sample paintbox
         print("SAMPLE PB")
-        pb = sample_pb(Y,Z,W,pb,D,F,N,T,res)
-        ll_list.append(log_likelihood(Y,Z,W,sig))
-        
+        pb = sample_pb(Y,Z,pb,D,F,N,T,res)        
+        W = mean_w(Y,Z)
+        vec = vectorize(pb)
+        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)))
     
-    return (ll_list,Z,pb)
+    return (ll_list,Z,W,pb)
     
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 2 #all conditionals will be multiples of 1/res 
-    F = 10 #features
+    res = 16 #all conditionals will be multiples of 1/res 
+    F = 2 #features
     D = res**F #discretization
     T = F #length of datapoint
     N = 100 #data size
     sig = 0.1
+    sig_w = 1.0
     Y,gen_pb = generate_data(res,D,F,N,T,sig)
     gen_pb = scale(gen_pb)
     plt.imshow(gen_pb,interpolation='nearest')
     plt.show()
-    iterate = 10
+    iterate = 100
     #print("DATA")
     #print(Y)
     #init variables
     #profile.run('gibbs_sample(Y,sig,iterate,D,F,N,T)') 
-    ll_list,Z,pb = gibbs_sample(Y,sig,iterate,D,F,N,T)
+    ll_list,Z,W,pb = gibbs_sample(Y,sig,sig_w,iterate,D,F,N,T)
+    approx = np.dot(Z,W)
     #print(Z)
-    pb = scale(pb)
-    plt.imshow(pb,interpolation='nearest')
+    pb_scale = scale(pb)
+    plt.imshow(pb_scale,interpolation='nearest')
     plt.show()   
-    print(pb)
-    
+    print(ll_list)
