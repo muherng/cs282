@@ -12,6 +12,7 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb 
 from fractions import gcd
+import matplotlib.pyplot as plt
 
 #size of paintbox
 res = 2
@@ -33,6 +34,15 @@ def lcm(*numbers):
     """Return lowest common multiple."""    
     def lcm(a, b):
         return (a * b) // gcd(a, b)
+        
+
+def generate_gg_blocks(): 
+    W = np.zeros( [ 4 , 36 ] ) 
+    W[0, [ 1 , 6 , 7 , 8 , 13 ] ] = 1
+    W[1, [ 3 , 4 , 5 , 9 , 11 , 15 , 16 , 17  ] ] = 1 
+    W[2, [ 18 , 24 , 25 , 30 , 31 , 32 ] ] = 1
+    W[3, [ 21 , 22 , 23 , 28 , 34 ] ] = 1 
+    return W 
 
 def scale(pb):
     F,D = pb.shape
@@ -119,21 +129,37 @@ def draw_Z(pb,D,F,N,T):
             Z[cum_draws[i-1]:cum_draws[i],:] = data_chunk
     return Z
 
+#this is for toy image W    
+def display_W(W):
+    F,T = W.shape
+    image_format = []
+    for i in range(F):
+        dim = int(np.sqrt(T))
+        image_format.append(np.reshape(W[i,:],(dim,dim)))
+        plt.imshow(image_format[i],interpolation='nearest')
+        plt.gray()
+        plt.show()
+    return 
+        
+
 def generate_data(res,D,F,N,T,sig):
     #pb = pb_partition(D,F)
     pb = pb_random(res,D,F)
     #print("PAINTBOX GENERATING")
     #print(pb)
     #This line is problematic, does not adapt to T
-    W = np.eye(F)
+    #W = np.hstack((np.eye(F),np.eye(F)))
+    W = generate_gg_blocks()
+    print(W)
     Y = np.zeros((N,T))
     E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
     
-    Z = draw_Z(pb,D,F,N,T)
+    #Z = draw_Z(pb,D,F,N,T)
+    Z = np.random.binomial( 1 , .25 , [ N , F ] )
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
-    return (Y,pb)    
+    return (Y,Z,pb)    
     
 #Y,pb = generate_data(res,D,F,N,T,sig)
 

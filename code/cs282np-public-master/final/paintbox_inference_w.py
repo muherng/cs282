@@ -12,9 +12,11 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb
 import matplotlib.pyplot as plt
-from generate_data import generate_data,pb_init,draw_Z,scale 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W 
 import profile
 from fractions import gcd
+from scipy.stats import norm
+import math 
 
 #There are a variety of edge case considerations when it comes to vectorized 
 #form of the paintboxes, this leads me to believe trees are the right idea
@@ -52,6 +54,14 @@ def devectorize(vec):
         #print(pb)
     return pb
 
+
+def log_w_sig(W,sig):
+    F,T = W.shape
+    like = 0
+    for i in range(F):
+        for j in range(T):
+            like = like + -0.5 * (1./(sig**2)) * W[i,j]**2
+    return like
 #probability of Z given the vectorized paintbox 
 #henceforth we will be working over vectorized paintboxes.
 #we unvectorize only for visual debugging.  
@@ -114,10 +124,12 @@ def sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T):
             yz_one = yz_one - yz_zero
             yz_zero = 0
             p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
-            try:
+            if math.isnan(p_one):
+                Z[i,j] = 0
+            else: 
                 Z[i,j] = np.random.binomial(1,p_one)
-            except ValueError:
-                print("ValueError Forever")
+            #if Z_vec(Z,vec,D) == 0:
+            #    print("illegal state")
     return Z
 
 #Algorithm: Perform tree updates on vectorized paintbox
@@ -158,7 +170,10 @@ def sample_pb(Y,Z,pb,D,F,N,T,res):
                             mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
                     roulette.append(Z_vec(Z,mat_vec[k,:],D))
                     normal_roulette = [1.0/np.sum(roulette) * r for r in roulette]
-                chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+                try:
+                    chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+                except TypeError:
+                    print("TypeError")
                 vec = mat_vec[chosen,:]
     pb = devectorize(vec)
     return pb
@@ -173,9 +188,14 @@ def gibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     W = np.eye(F)
     pb = pb_init(D,F)
     Z = draw_Z(pb,D,F,N,T)
+    if Z_vec(Z,vectorize(pb),D) == 0:
+        print("draw Z is wrong")
+        
     ll_list = []
     W_list = []
+    print("gibbs sample")
     for it in range(iterate):
+        print(it)
         #sample Z
         print("SAMPLE Z")
         Z = sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T)
@@ -184,24 +204,28 @@ def gibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
         pb = sample_pb(Y,Z,pb,D,F,N,T,res)        
         W = mean_w(Y,Z)
         vec = vectorize(pb)
-        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)))
+        print("COULD BE SMALL")
+        print(log_w_sig(W,sig)) 
+        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)) + log_w_sig(W,sig))
     
     return (ll_list,Z,W,pb)
     
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 16 #all conditionals will be multiples of 1/res 
-    F = 2 #features
+    res = 4 #all conditionals will be multiples of 1/res 
+    F = 4 #features
     D = res**F #discretization
-    T = F #length of datapoint
+    T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
-    sig_w = 1.0
-    Y,gen_pb = generate_data(res,D,F,N,T,sig)
-    gen_pb = scale(gen_pb)
-    plt.imshow(gen_pb,interpolation='nearest')
-    plt.show()
+    sig_w = 5.0
+    print("GENERATE DATA")
+    Y,Z_gen,gen_pb = generate_data(res,D,F,N,T,sig)
+    print('FINISH GENERATE')
+    #gen_pb = scale(gen_pb)
+    #plt.imshow(gen_pb,interpolation='nearest')
+    #plt.show()
     iterate = 100
     #print("DATA")
     #print(Y)
@@ -213,4 +237,11 @@ if __name__ == "__main__":
     pb_scale = scale(pb)
     plt.imshow(pb_scale,interpolation='nearest')
     plt.show()   
-    print(ll_list)
+    #print(ll_list)
+    
+    #plt.imshow(W,interpolation='nearest')
+    #plt.show()
+    display_W(W)
+    
+    plt.plot(ll_list)
+    plt.show()
