@@ -150,7 +150,6 @@ def generate_data(res,D,F,N,T,sig):
     #This line is problematic, does not adapt to T
     #W = np.hstack((np.eye(F),np.eye(F)))
     W = generate_gg_blocks()
-    print(W)
     Y = np.zeros((N,T))
     E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
     
