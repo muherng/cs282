@@ -217,11 +217,11 @@ def sample_pb(Z,tree,D,F,N,T,res):
                 if Z_vec(Z,vec,D) == 0:
                     print("ILLEGAL PAINTBOX UPDATE")
     tree = update((ctree,ptree))
-    for i in range(len(vec)):
-        if vec[i] != ptree[F-1,i]:
-            print("UPDATE PROBAILITY INVARIANT")
-            print(vec[i])
-            print(ptree[F-1,i])
+#    for i in range(len(vec)):
+#        if vec[i] != ptree[F-1,i]:
+#            print("UPDATE PROBAILITY INVARIANT")
+#            print(vec[i])
+#            print(ptree[F-1,i])
     return tree
 
 #find posterior mean of W 
@@ -307,7 +307,7 @@ if __name__ == "__main__":
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
-    sig_w = 8.0
+    sig_w = 5.0
     print("GENERATE DATA")
     Y,Z_gen = generate_data(res,D,F,N,T,sig)
     print('FINISH GENERATE')
