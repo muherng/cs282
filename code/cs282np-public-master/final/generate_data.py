@@ -13,6 +13,7 @@ import scipy.stats as SPST
 import pdb 
 from fractions import gcd
 import matplotlib.pyplot as plt
+from tree_paintbox import gen_tree,update,drop,add,get_vec,get_FD
 
 #size of paintbox
 res = 2
@@ -128,6 +129,30 @@ def draw_Z(pb,D,F,N,T):
         else:    
             Z[cum_draws[i-1]:cum_draws[i],:] = data_chunk
     return Z
+    
+def draw_Z_tree(tree,N):
+    F,D = get_FD(tree)
+    vec = get_vec(tree)
+    normal_vec = 1./np.sum(vec) * vec
+    print("normal vec")
+    print(normal_vec)
+    draws = np.random.multinomial(N, normal_vec)
+    print(draws)
+    ctree,ptree = tree
+    Z = np.zeros((N,F))
+    cum_draws = np.cumsum(draws)
+    #generate Z
+    for i in range(D):
+        density = draws[i]
+        binary = map(int,"{0:b}".format(i))
+        row = [0]*(F-len(binary)) + binary
+        print(draws)
+        data_chunk = np.tile(row,(density,1))
+        if i == 0:
+             Z[0:cum_draws[i],:] = data_chunk
+        else:    
+            Z[cum_draws[i-1]:cum_draws[i],:] = data_chunk
+    return Z
 
 #this is for toy image W    
 def display_W(W):
@@ -144,7 +169,7 @@ def display_W(W):
 
 def generate_data(res,D,F,N,T,sig):
     #pb = pb_partition(D,F)
-    pb = pb_random(res,D,F)
+    #pb = pb_random(res,D,F)
     #print("PAINTBOX GENERATING")
     #print(pb)
     #This line is problematic, does not adapt to T
@@ -158,7 +183,7 @@ def generate_data(res,D,F,N,T,sig):
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
-    return (Y,Z,pb)    
+    return (Y,Z)    
     
 #Y,pb = generate_data(res,D,F,N,T,sig)
 

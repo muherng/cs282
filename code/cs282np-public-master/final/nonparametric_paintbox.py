@@ -12,11 +12,12 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb
 import matplotlib.pyplot as plt
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree 
 import profile
 from fractions import gcd
 from scipy.stats import norm
 import math 
+from tree_paintbox import gen_tree,update,drop,add,get_vec
 
 #There are a variety of edge case considerations when it comes to vectorized 
 #form of the paintboxes, this leads me to believe trees are the right idea
@@ -64,19 +65,39 @@ def log_w_sig(W,sig):
     return like
 #probability of Z given the vectorized paintbox 
 #henceforth we will be working over vectorized paintboxes.
-#we unvectorize only for visual debugging.  
+#we unvectorize only for visual debugging. 
+#LOG LIKELIHOODS HENCEFORTH 
 def Z_vec(Z,vec,D):
     N,F = Z.shape
-    zp = 1
+    zp = 1.0
+    zp_list = []
     for i in range(N):
         z_index = int(''.join(map(str, Z[i,:])).replace(".0",""),2)
-        zp = zp*float(vec[z_index])/D
+        zp = zp*float(vec[z_index])
+        zp_list.append(zp)
+        #if float(vec[z_index])/D == 0.0:
+            #print("Z Invariant Broken")
+            #print("Breaks at Index:")
+            #print(z_index)
+        #if zp == 0:
+        #    print("Did Invariant Break?")
+        
     return zp
+    
+def debug(Z,vec,D):
+    N,F = Z.shape
+    zp = 1.0
+    for i in range(N):
+        z_index = int(''.join(map(str, Z[i,:])).replace(".0",""),2)
+        zp = zp*float(vec[z_index])
+        if float(vec[z_index])/D == 0.0:
+            return z_index
+    return -1
 
 #performs Z_vec for a single row
 def Z_paintbox(z_row,vec,sig,D):
     z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
-    zp = float(vec[z_index])/D
+    zp = float(vec[z_index])
     return zp
     
 def log_data_zw(Y,Z,W,sig):
@@ -115,8 +136,8 @@ def log_uncollapsed( Y , Z , W , sig):
     
     
 #adjust this to accomodate W
-def sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T):
-    vec = vectorize(pb)
+def sample_Z(Y,Z,W,sig,sig_w,tree,D,F,N,T):
+    vec = get_vec(tree)
     for i in range(N):
         for j in range(F):
             Z_one = np.copy(Z)
@@ -127,20 +148,32 @@ def sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T):
             yz_zero = log_uncollapsed(Y,Z_zero,W,sig)
             zp_one = Z_paintbox(Z_one[i,:],vec,sig,D)
             zp_zero = Z_paintbox(Z_zero[i,:],vec,sig,D)
-            #numerical adjustment
-            yz_one = yz_one - yz_zero
-            yz_zero = 0
-            p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
-            if math.isnan(p_one):
-                Z[i,j] = 0
-            else: 
+            if zp_one == 0 or zp_zero == 0:
+                if zp_one == 0:
+                    Z[i,j] == 0
+                if zp_zero == 0:
+                    Z[i,j] == 1
+            else:
+                #numerical adjustment
+                yz_one = yz_one - yz_zero
+                yz_zero = 0
+                p_one = 0
+                if math.isinf(np.exp(yz_one)):
+                    p_one = 1
+                else:
+                    p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
+                if math.isnan(p_one):
+                    print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
+            if Z_vec(Z,vec,D) == 0:
+                print("TOTALLY ILLEGAL")
             
     return Z
 
 #Algorithm: Perform tree updates on vectorized paintbox
-def sample_pb(Z,pb,D,F,N,T,res):
-    vec = vectorize(pb)
+def sample_pb(Z,tree,D,F,N,T,res):
+    ctree,ptree = tree
+    vec = get_vec(tree)
     #iterate over features (row of paintbox)
     for i in range(F):
         #iterate over nodes j in tree layer i 
@@ -174,14 +207,22 @@ def sample_pb(Z,pb,D,F,N,T,res):
                             mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
                             mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
                     roulette.append(Z_vec(Z,mat_vec[k,:],D))
-                    normal_roulette = [1.0/np.sum(roulette) * r for r in roulette]
+                    normal_roulette = [r/np.sum(roulette) for r in roulette]
                 try:
                     chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
                 except TypeError:
                     print("TypeError")
                 vec = mat_vec[chosen,:]
-    pb = devectorize(vec)
-    return pb
+                ctree[i,j] = float(chosen)/res
+                if Z_vec(Z,vec,D) == 0:
+                    print("ILLEGAL PAINTBOX UPDATE")
+    tree = update((ctree,ptree))
+    for i in range(len(vec)):
+        if vec[i] != ptree[F-1,i]:
+            print("UPDATE PROBAILITY INVARIANT")
+            print(vec[i])
+            print(ptree[F-1,i])
+    return tree
 
 #find posterior mean of W 
 def mean_w(Y,Z):
@@ -232,48 +273,58 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     return (ll_list,Z,W,pb)
     
 def ugibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
-    pb = pb_init(D,F)
-    Z = draw_Z(pb,D,F,N,T)
+    #pb = pb_init(D,F)
+    tree = gen_tree(F,res)
+    print("Tree")
+    ctree,ptree = tree
+    print(ctree)
+    print(ptree)
+    Z = draw_Z_tree(tree,N)
+    print("LEGAL?")
+    print(Z_vec(Z,get_vec(tree),D))
+    W = sample_W(Y,Z,sig,sig_w)
+    #W = np.reshape(np.random.normal(0,sig_w,F*T),(F,T))
+    ll_list = []
     for it in range(iterate):
         print("iteration: " + str(it))
         #sample Z
-        Z = sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T)
+        Z = sample_Z(Y,Z,W,sig,sig_w,tree,D,F,N,T)
         #sample paintbox
-        pb = sample_pb(Z,pb,D,F,N,T,res)
+        tree = sample_pb(Z,tree,D,F,N,T,res)
         #sample W        
         W = sample_W(Y,Z,sig,sig_w)
         #add new features
         
-        vec = vectorize(pb)
+        vec = get_vec(tree)
         ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)) + log_w_sig(W,sig))
-    return (ll_list,Z,W,pb)
+    return (ll_list,Z,W,devectorize(vec))
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 4 #all conditionals will be multiples of 1/res 
+    res = 16 #all conditionals will be multiples of 1/res 
     F = 4 #features
     D = res**F #discretization
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
-    sig_w = 5.0
+    sig_w = 8.0
     print("GENERATE DATA")
-    Y,Z_gen,gen_pb = generate_data(res,D,F,N,T,sig)
+    Y,Z_gen = generate_data(res,D,F,N,T,sig)
     print('FINISH GENERATE')
     #gen_pb = scale(gen_pb)
     #plt.imshow(gen_pb,interpolation='nearest')
     #plt.show()
-    iterate = 500
+    iterate = 100
     #print("DATA")
     #print(Y)
     #init variables
     #profile.run('gibbs_sample(Y,sig,iterate,D,F,N,T)') 
     ll_list,Z,W,pb = ugibbs_sample(Y,sig,sig_w,iterate,D,F,N,T)
-    approx = np.dot(Z,W)
+    #approx = np.dot(Z,W)
     #print(Z)
-    pb_scale = scale(pb)
-    plt.imshow(pb_scale,interpolation='nearest')
-    plt.show()   
+    #pb_scale = scale(pb)
+    #plt.imshow(pb_scale,interpolation='nearest')
+    #plt.show()   
     #print(ll_list)
     
     #plt.imshow(W,interpolation='nearest')
