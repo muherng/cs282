@@ -63,19 +63,38 @@ def drop_tree(tree,zeros):
     zeros = zeros[::-1]
     for z in zeros:
         F,D = ctree.shape
-        print("decreasing")
-        print(F)
-        copy = np.copy(ctree)
-        for i in range(z,F-1): 
-            for j in range(2**z):
-                ctree[i,j*2**(i-z):(j+1)*2**(i-z)] = copy[i+1,j*2**(i-z+1):j*2**(i-z+1)+2**(i-z)] 
-        ctree = ctree[:F-1,:2**(F-2)]
+        if F == 1:
+            ctree = np.zeros((0,0))
+        else:
+            print("decreasing")
+            print(F)
+            copy = np.copy(ctree)
+            for i in range(z,F-1): 
+                for j in range(2**z):
+                    ctree[i,j*2**(i-z):(j+1)*2**(i-z)] = copy[i+1,j*2**(i-z+1):j*2**(i-z+1)+2**(i-z)] 
+            ctree = ctree[:F-1,:2**(F-2)]
+        
     tree = update((ctree,ptree))
     print("after drop")
     ctree,ptree = tree
     print(ctree.shape)
     return tree
     
+def conditional_draw(tree,row,ext,tot):
+    vec = get_vec(tree)
+    if len(row) == 0:
+        z_index = 0
+    else:
+        try:
+            z_index = int(''.join(map(str, row)).replace(".0",""),2)*(2**ext)
+        except ValueError:
+            print("ValueError")
+    roulette = vec[z_index:z_index + 2**ext]
+    normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
+    chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0]) + z_index
+    binary = map(int,"{0:b}".format(chosen))
+    pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
+    return pad_binary
     
 # add a feature to the end
 def add(tree,ext,res):

@@ -17,7 +17,7 @@ import profile
 from fractions import gcd
 from scipy.stats import norm
 import math 
-from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree
+from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree,conditional_draw
 
 #There are a variety of edge case considerations when it comes to vectorized 
 #form of the paintboxes, this leads me to believe trees are the right idea
@@ -70,11 +70,11 @@ def log_w_sig(W,sig):
 def Z_vec(Z,vec):
     N,F = Z.shape
     zp = 1.0
-    zp_list = []
+    #zp_list = []
     for i in range(N):
         z_index = int(''.join(map(str, Z[i,:])).replace(".0",""),2)
-        zp = zp*float(vec[z_index])
-        zp_list.append(zp)
+        zp = zp+np.log(float(vec[z_index]))
+        #zp_list.append(zp)
         #if float(vec[z_index])/D == 0.0:
             #print("Z Invariant Broken")
             #print("Breaks at Index:")
@@ -157,7 +157,7 @@ def add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w):
         vec = get_vec(tree)
     return (Z,W,tree,vec)
 
-def sample_Z(Y,Z,W,prior,sig,sig_w,tree):
+def sample_Z(Y,Z,W,sig,sig_w,tree):
     N,T = Y.shape
     N,K = Z.shape
     vec = get_vec(tree)
@@ -189,7 +189,7 @@ def sample_Z(Y,Z,W,prior,sig,sig_w,tree):
                 if math.isnan(p_one):
                     print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
-            if Z_vec(Z,vec) == 0:
+            if math.isinf(Z_vec(Z,vec)):
                 print("TOTALLY ILLEGAL") 
         #add new features
         #Z,W,tree,vec = add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w)
@@ -233,7 +233,11 @@ def sample_pb(Z,tree,res):
                             ratio_zero = float((1 - new_prob))/(1 - old_prob)
                             mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
                             mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
-                    roulette.append(Z_vec(Z,mat_vec[k,:]))
+                    val = Z_vec(Z,mat_vec[k,:])
+                    if math.isinf(val) or math.isnan(val):
+                        roulette.append(0.0)
+                    else:
+                        roulette.append(np.exp(val))
                     normal_roulette = [r/np.sum(roulette) for r in roulette]
                 try:
                     chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
@@ -241,7 +245,7 @@ def sample_pb(Z,tree,res):
                     print("TypeError")
                 vec = mat_vec[chosen,:]
                 ctree[i,j] = float(chosen)/res
-                if Z_vec(Z,vec) == 0:
+                if math.isinf(Z_vec(Z,vec)):
                     print("ILLEGAL PAINTBOX UPDATE")
     tree = update((ctree,ptree))
 #    for i in range(len(vec)):
@@ -277,17 +281,17 @@ def sample_W(Y,Z,sig,sig_w):
         
     return W
 
-def draw_feature(Y,Z,W,sig,sig_w,tree,res):
+def draw_feature(Z,tree,res,ext):
     N,F = Z.shape
-    N,T = Y.shape
-    Z = np.hstack((Z,np.zeros((N,1))))
-    ctree,ptree = tree
-    Z = sample_Z(Y,Z,W,sig,sig_w,tree,[F-1])
+    Z_new = np.zeros((N,F+ext))
+    for i in range(N):
+        Z_new[i,:] = conditional_draw(tree,Z[i,:],ext,F+ext)
+    
     #for i in range(N):
         #print("access probability")
         #print(access(ctree,Z[i,:F]))
         #Z[i,F] = np.random.binomial(1,access(ctree,Z[i,:F]))
-    return Z  
+    return Z_new  
 
 def drop_feature(Z,W,tree):
     print("drop feature")
@@ -303,30 +307,27 @@ def drop_feature(Z,W,tree):
     return (Z,W,tree)
     
 
-def new_feature(Y,Z,W,tree,ext,res,sig,sig_w):
-    print("new feature")
+def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w):
     ctree,ptree = tree
     Z,W,tree = drop_feature(Z,W,tree)
-    print("z shape")
-    print(Z.shape)
-    print(W.shape)
-    print("after drop shape")
-    ctree,ptree = tree
-    print(ctree.shape)
-    tree = add(tree,ext,res)
-    ctree,ptree = tree
-    print("tree shape")
-    ctree,ptree = tree
-    print(ctree.shape)
-    #Z = draw_feature(Z,tree,res)
-    #W = np.vstack((W,np.random.normal(0,sig_w,(ext,T))))
+    F,D = get_FD(tree)
+    if F >= 4:
+        return (Z,W,tree)
+    else:
+        if F + ext < K:
+            more = K - F
+        else:
+            more = ext
+        tree = add(tree,more,res)
+        Z = draw_feature(Z,tree,res,more)
+        W = np.vstack((W,np.random.normal(0,sig_w,(more,T))))
     #W = sample_W(Y,Z,sig,sig_w)
     return (Z,W,tree)
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     pb = pb_init(D,F)
     Z = draw_Z(pb,D,F,N,T)
-    if Z_vec(Z,vectorize(pb),D) == 0:
+    if math.isinf(Z_vec(Z,vectorize(pb),D)):
         print("draw Z is wrong")
         
     ll_list = []
@@ -341,7 +342,7 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
         pb = sample_pb(Z,pb,D,F,N,T,res)        
         W = mean_w(Y,Z)
         vec = vectorize(pb)
-        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)) + log_w_sig(W,sig))
+        ll_list.append(log_data_zw(Y,Z,W,sig) + Z_vec(Z,vec,D) + log_w_sig(W,sig))
     
     return (ll_list,Z,W,pb)
     
@@ -352,14 +353,14 @@ def ugibbs_sample(Y,ext,sig,sig_w,iterate,K):
     Z = draw_Z_tree(tree,N)
     print("LEGAL?")
     print(Z_vec(Z,get_vec(tree)))
-    #W = sample_W(Y,Z,sig,sig_w)
-    W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
+    W = sample_W(Y,Z,sig,sig_w)
+    #W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     ll_list = []
     for it in range(iterate):
         print("iteration: " + str(it))
         N,K = Z.shape
         #sample Z
-        Z = sample_Z(Y,Z,W,prior,sig,sig_w,tree)
+        Z = sample_Z(Y,Z,W,sig,sig_w,tree)
         print("Sparsity?")
         print(np.sum(Z,axis=0))
         #sample paintbox
@@ -373,10 +374,10 @@ def ugibbs_sample(Y,ext,sig,sig_w,iterate,K):
 #            Z = draw_Z_tree(tree,N)
 #            W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
         #add new features
-        Z,W,tree = new_feature(Y,Z,W,tree,ext,res,sig,sig_w)
-        
         vec = get_vec(tree)
-        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec)) + log_w_sig(W,sig))
+        ll_list.append(log_data_zw(Y,Z,W,sig) + Z_vec(Z,vec) + log_w_sig(W,sig))
+        #ll_list.append(log_data_zw(Y,Z,W,sig) + log_w_sig(W,sig))
+        #Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w)
     return (ll_list,Z,W,devectorize(vec))
 
 if __name__ == "__main__":
@@ -390,19 +391,19 @@ if __name__ == "__main__":
     sig_w = 5.0
     print("generate data")
     Y,Z_gen = generate_data(res,D,F,N,T,sig)
-    iterate = 1
+    iterate = 10
     #profile.run('gibbs_sample(Y,sig,iterate,D,F,N,T)') 
     #probability of keeping feature
     #prior = [0.0001, 0.9999]
     #active features
     K = 4
-    ext = 4
+    ext = 0
     ll_list,Z,W,pb = ugibbs_sample(Y,ext,sig,sig_w,iterate,K)
     #approx = np.dot(Z,W)
     #print(Z)
-    #pb_scale = scale(pb)
-    #plt.imshow(pb_scale,interpolation='nearest')
-    #plt.show()   
+    pb_scale = scale(pb)
+    plt.imshow(pb_scale,interpolation='nearest')
+    plt.show()   
     #print(ll_list)
     
     #plt.imshow(W,interpolation='nearest')
