@@ -17,7 +17,7 @@ import profile
 from fractions import gcd
 from scipy.stats import norm
 import math 
-from tree_paintbox import gen_tree,update,drop,add,get_vec
+from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree
 
 #There are a variety of edge case considerations when it comes to vectorized 
 #form of the paintboxes, this leads me to believe trees are the right idea
@@ -67,7 +67,7 @@ def log_w_sig(W,sig):
 #henceforth we will be working over vectorized paintboxes.
 #we unvectorize only for visual debugging. 
 #LOG LIKELIHOODS HENCEFORTH 
-def Z_vec(Z,vec,D):
+def Z_vec(Z,vec):
     N,F = Z.shape
     zp = 1.0
     zp_list = []
@@ -127,19 +127,43 @@ def log_collapsed(Y,Z,sig,sig_w):
     return ll 
 
 # Uncollapsed Likelihood 
-def log_uncollapsed( Y , Z , W , sig):
+def log_uncollapsed(Y,Z,W,sig):
     N,T = Y.shape
     YZW = Y - np.dot(Z,W)
     trYZW = np.trace(np.dot(YZW.T,YZW))
     ll = (-1.0*float(N*T)/2) * np.log(2*np.pi*sig**2) - 1.0/(2*sig**2) * trYZW
     return ll
     
-    
-#adjust this to accomodate W
-def sample_Z(Y,Z,W,sig,sig_w,tree,D,F,N,T):
+def add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w):
+    N,T = Y.shape
+    N,K = Z.shape
+    old = log_data_zw(Y,Z,W,sig)
+    col = np.zeros((N,1))
+    col[i,0] = 1
+    Z_new = np.hstack((Z,col))
+    W_new = np.vstack((W,np.random.normal(0,sig_w,(1,T))))
+    #W_new = sample_W(Y,Z_new,sig,sig_w)
+    new = log_data_zw(Y,Z_new,W_new,sig)
+    new = new - old
+    old = 0
+    roulette = [np.exp(old)*prior[0],np.exp(new)*prior[1]]
+    normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
+    chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+    if chosen:
+        print("ADDING")
+        Z = Z_new
+        W = W_new
+        tree = add(tree,res)
+        vec = get_vec(tree)
+    return (Z,W,tree,vec)
+
+def sample_Z(Y,Z,W,prior,sig,sig_w,tree):
+    N,T = Y.shape
+    N,K = Z.shape
     vec = get_vec(tree)
     for i in range(N):
-        for j in range(F):
+        for j in range(K):
+            #print((i,j))
             Z_one = np.copy(Z)
             Z_zero = np.copy(Z)
             Z_one[i,j] = 1
@@ -165,13 +189,16 @@ def sample_Z(Y,Z,W,sig,sig_w,tree,D,F,N,T):
                 if math.isnan(p_one):
                     print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
-            if Z_vec(Z,vec,D) == 0:
-                print("TOTALLY ILLEGAL")
-            
+            if Z_vec(Z,vec) == 0:
+                print("TOTALLY ILLEGAL") 
+        #add new features
+        #Z,W,tree,vec = add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w)
+        K = Z.shape[1]
     return Z
 
 #Algorithm: Perform tree updates on vectorized paintbox
-def sample_pb(Z,tree,D,F,N,T,res):
+def sample_pb(Z,tree,res):
+    F,D = get_FD(tree)
     ctree,ptree = tree
     vec = get_vec(tree)
     #iterate over features (row of paintbox)
@@ -206,7 +233,7 @@ def sample_pb(Z,tree,D,F,N,T,res):
                             ratio_zero = float((1 - new_prob))/(1 - old_prob)
                             mat_vec[k,start_one:end_one+1] = ratio_one*mat_vec[k,start_one:end_one+1]
                             mat_vec[k,start_zero:end_zero+1] = ratio_zero*mat_vec[k,start_zero:end_zero+1]
-                    roulette.append(Z_vec(Z,mat_vec[k,:],D))
+                    roulette.append(Z_vec(Z,mat_vec[k,:]))
                     normal_roulette = [r/np.sum(roulette) for r in roulette]
                 try:
                     chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
@@ -214,7 +241,7 @@ def sample_pb(Z,tree,D,F,N,T,res):
                     print("TypeError")
                 vec = mat_vec[chosen,:]
                 ctree[i,j] = float(chosen)/res
-                if Z_vec(Z,vec,D) == 0:
+                if Z_vec(Z,vec) == 0:
                     print("ILLEGAL PAINTBOX UPDATE")
     tree = update((ctree,ptree))
 #    for i in range(len(vec)):
@@ -249,6 +276,52 @@ def sample_W(Y,Z,sig,sig_w):
             print('ValueError')
         
     return W
+
+def draw_feature(Y,Z,W,sig,sig_w,tree,res):
+    N,F = Z.shape
+    N,T = Y.shape
+    Z = np.hstack((Z,np.zeros((N,1))))
+    ctree,ptree = tree
+    Z = sample_Z(Y,Z,W,sig,sig_w,tree,[F-1])
+    #for i in range(N):
+        #print("access probability")
+        #print(access(ctree,Z[i,:F]))
+        #Z[i,F] = np.random.binomial(1,access(ctree,Z[i,:F]))
+    return Z  
+
+def drop_feature(Z,W,tree):
+    print("drop feature")
+    zeros = np.where(np.sum(Z,axis=0) == 0)[0]
+    ones = np.where(np.sum(Z,axis=0) != 0)[0]
+    print(zeros)
+    Z = Z[:,ones]
+    W = W[ones,:]
+    tree = drop_tree(tree,zeros)
+    print("tree shape now")
+    ctree,ptree = tree
+    print(ctree.shape)
+    return (Z,W,tree)
+    
+
+def new_feature(Y,Z,W,tree,ext,res,sig,sig_w):
+    print("new feature")
+    ctree,ptree = tree
+    Z,W,tree = drop_feature(Z,W,tree)
+    print("z shape")
+    print(Z.shape)
+    print(W.shape)
+    print("after drop shape")
+    ctree,ptree = tree
+    print(ctree.shape)
+    tree = add(tree,ext,res)
+    ctree,ptree = tree
+    print("tree shape")
+    ctree,ptree = tree
+    print(ctree.shape)
+    #Z = draw_feature(Z,tree,res)
+    #W = np.vstack((W,np.random.normal(0,sig_w,(ext,T))))
+    #W = sample_W(Y,Z,sig,sig_w)
+    return (Z,W,tree)
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     pb = pb_init(D,F)
@@ -272,54 +345,59 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     
     return (ll_list,Z,W,pb)
     
-def ugibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
-    #pb = pb_init(D,F)
-    tree = gen_tree(F,res)
-    print("Tree")
+def ugibbs_sample(Y,ext,sig,sig_w,iterate,K):
+    N,T = Y.shape
+    tree = gen_tree(K,res)
     ctree,ptree = tree
-    print(ctree)
-    print(ptree)
     Z = draw_Z_tree(tree,N)
     print("LEGAL?")
-    print(Z_vec(Z,get_vec(tree),D))
-    W = sample_W(Y,Z,sig,sig_w)
-    #W = np.reshape(np.random.normal(0,sig_w,F*T),(F,T))
+    print(Z_vec(Z,get_vec(tree)))
+    #W = sample_W(Y,Z,sig,sig_w)
+    W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     ll_list = []
     for it in range(iterate):
         print("iteration: " + str(it))
+        N,K = Z.shape
         #sample Z
-        Z = sample_Z(Y,Z,W,sig,sig_w,tree,D,F,N,T)
+        Z = sample_Z(Y,Z,W,prior,sig,sig_w,tree)
+        print("Sparsity?")
+        print(np.sum(Z,axis=0))
         #sample paintbox
-        tree = sample_pb(Z,tree,D,F,N,T,res)
+        tree = sample_pb(Z,tree,res)
+        ctree,ptree = tree
         #sample W        
         W = sample_W(Y,Z,sig,sig_w)
+#        if np.sum(Z,axis=0)[0] == 0:
+#            print("Here")
+#            tree = gen_tree(K,res)
+#            Z = draw_Z_tree(tree,N)
+#            W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
         #add new features
+        Z,W,tree = new_feature(Y,Z,W,tree,ext,res,sig,sig_w)
         
         vec = get_vec(tree)
-        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec,D)) + log_w_sig(W,sig))
+        ll_list.append(log_data_zw(Y,Z,W,sig) + np.log(Z_vec(Z,vec)) + log_w_sig(W,sig))
     return (ll_list,Z,W,devectorize(vec))
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 16 #all conditionals will be multiples of 1/res 
+    res = 8 #all conditionals will be multiples of 1/res 
     F = 4 #features
     D = res**F #discretization
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
     sig_w = 5.0
-    print("GENERATE DATA")
+    print("generate data")
     Y,Z_gen = generate_data(res,D,F,N,T,sig)
-    print('FINISH GENERATE')
-    #gen_pb = scale(gen_pb)
-    #plt.imshow(gen_pb,interpolation='nearest')
-    #plt.show()
-    iterate = 100
-    #print("DATA")
-    #print(Y)
-    #init variables
+    iterate = 1
     #profile.run('gibbs_sample(Y,sig,iterate,D,F,N,T)') 
-    ll_list,Z,W,pb = ugibbs_sample(Y,sig,sig_w,iterate,D,F,N,T)
+    #probability of keeping feature
+    #prior = [0.0001, 0.9999]
+    #active features
+    K = 4
+    ext = 4
+    ll_list,Z,W,pb = ugibbs_sample(Y,ext,sig,sig_w,iterate,K)
     #approx = np.dot(Z,W)
     #print(Z)
     #pb_scale = scale(pb)

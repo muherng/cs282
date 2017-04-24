@@ -27,14 +27,18 @@ def gen_tree(F,res):
 def update(tree):
     ctree,ptree = tree
     F,D = ctree.shape
-    ptree[0][0] = 1 - ctree[0][0]
-    ptree[0][1] = ctree[0][0]
-    for i in range(1,F):
-        for j in range(2**(i+1)):
-            if j%2 == 0:
-                ptree[i,j] = ptree[i-1,j/2]*(1 - ctree[i,j/2])
-            else: 
-                ptree[i,j] = ptree[i-1,j/2]*ctree[i,j/2]
+    if F == 0:
+        ptree = np.zeros((0,0))
+    else:
+        ptree = np.zeros((F,2**F))
+        ptree[0][0] = 1 - ctree[0][0]
+        ptree[0][1] = ctree[0][0]
+        for i in range(1,F):
+            for j in range(2**(i+1)):
+                if j%2 == 0:
+                    ptree[i,j] = ptree[i-1,j/2]*(1 - ctree[i,j/2])
+                else: 
+                    ptree[i,j] = ptree[i-1,j/2]*ctree[i,j/2]
     return (ctree,ptree)
     
 #feature is a vector of features to be dropped
@@ -51,23 +55,38 @@ def update(tree):
 #    return update((ctree,ptree))
             
 #drop last feature
-def drop(tree):
+def drop_tree(tree,zeros):
+    print("drop tree")
+    print(zeros)
+    print(tree)
     ctree,ptree = tree
-    F,D = ctree.shape
-    ctree = ctree[:F-1,:D/2]
-    ptree = ptree[:F-1,:D/2]
-    return (ctree,ptree)
+    zeros = zeros[::-1]
+    for z in zeros:
+        F,D = ctree.shape
+        print("decreasing")
+        print(F)
+        copy = np.copy(ctree)
+        for i in range(z,F-1): 
+            for j in range(2**z):
+                ctree[i,j*2**(i-z):(j+1)*2**(i-z)] = copy[i+1,j*2**(i-z+1):j*2**(i-z+1)+2**(i-z)] 
+        ctree = ctree[:F-1,:2**(F-2)]
+    tree = update((ctree,ptree))
+    print("after drop")
+    ctree,ptree = tree
+    print(ctree.shape)
+    return tree
     
     
 # add a feature to the end
-def add(tree,res):
+def add(tree,ext,res):
     ctree,ptree = tree
     F,D = ctree.shape
-    new_ctree = np.zeros((F+1,2**(F+1)))
+    new_ctree = np.zeros((F+ext,2**(F+ext-1)))
     new_ctree[:F,:D] = ctree
-    new_ptree = np.zeros((F+1,2**(F+1)))
-    for j in range(2**(F+1)):
-        new_ctree[F+1,j] = int(np.where(np.random.multinomial(1,[1./res]*res) == 1)[0])
+    new_ptree = np.zeros((F+ext,2**(F+ext)))
+    for i in range(F,F+ext):
+        for j in range(2**i):
+            new_ctree[i,j] = float(np.where(np.random.multinomial(1,[1./res]*res) == 1)[0])/res
     return update((new_ctree,new_ptree))
     
 def get_vec(tree):
@@ -78,6 +97,13 @@ def get_vec(tree):
 def get_FD(tree):
     ctree,ptree = tree
     return ptree.shape 
+
+def access(ctree,z_row):
+    depth = len(z_row)
+    z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
+    return ctree[depth,z_index]
+     
+    
     
 
     
