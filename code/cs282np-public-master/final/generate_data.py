@@ -166,7 +166,7 @@ def display_W(W):
     return 
         
 
-def generate_data(res,D,F,N,T,sig):
+def generate_data(F,N,T,sig):
     #pb = pb_partition(D,F)
     #pb = pb_random(res,D,F)
     #print("PAINTBOX GENERATING")

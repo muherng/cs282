@@ -56,9 +56,6 @@ def update(tree):
             
 #drop last feature
 def drop_tree(tree,zeros):
-    #print("drop tree")
-    #print(zeros)
-    #print(tree)
     ctree,ptree = tree
     zeros = zeros[::-1]
     for z in zeros:
@@ -66,8 +63,6 @@ def drop_tree(tree,zeros):
         if F == 1:
             ctree = np.zeros((0,0))
         else:
-            #print("decreasing")
-            #print(F)
             copy = np.copy(ctree)
             for i in range(z,F-1): 
                 for j in range(2**z):
@@ -75,9 +70,7 @@ def drop_tree(tree,zeros):
             ctree = ctree[:F-1,:2**(F-2)]
         
     tree = update((ctree,ptree))
-    #print("after drop")
     ctree,ptree = tree
-    #print(ctree.shape)
     return tree
 
 #draw from paintbox conditioned on row    
@@ -100,8 +93,7 @@ def conditional_draw(tree,row,ext,tot):
         roulette = vec
         normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
         chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
-        print("TypeError")
-               
+        print("TypeError")   
     binary = map(int,"{0:b}".format(chosen))
     pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
     return pad_binary

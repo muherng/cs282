@@ -375,7 +375,7 @@ def ugibbs_sample(Y,ext,sig,sig_w,iterate,K,data_run):
         print("Sparsity: " + str(np.sum(Z,axis=0)))
         #sample paintbox
         tree = sample_pb(Z,tree,res)
-        ctree,ptree = tree
+        #ctree,ptree = tree
         #sample W        
         W = sample_W(Y,Z,sig,sig_w)
         #add new features
@@ -406,7 +406,7 @@ if __name__ == "__main__":
     N = 100 #data size
     sig = 0.1
     sig_w = 0.8
-    Y,Z_gen = generate_data(res,D,F,N,T,sig)
+    Y,Z_gen = generate_data(F,N,T,sig)
     iterate = 1000
     #active features
     K = 1
