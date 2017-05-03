@@ -174,6 +174,8 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
                 if zp_one == 0:
                     Z[i,j] == 0
                 if zp_zero == 0:
+                    if np.sum(Z,axis=0)[j] == 0:
+                        print("Feature Kick: Undesirable Behavior")
                     Z[i,j] == 1
             else:
                 #numerical adjustment
@@ -304,12 +306,9 @@ def sample_W(Y,Z,sig,sig_w):
 def draw_feature(Z,tree,res,ext):
     N,F = Z.shape
     Z_new = np.zeros((N,F+ext))
-    hard_exit = 0
     for i in range(N):
-        Z_new[i,:],hard_exit = conditional_draw(tree,Z[i,:],ext,F+ext)
-        if hard_exit == 1:
-            break
-    return Z_new,hard_exit  
+        Z_new[i,:] = conditional_draw(tree,Z[i,:],ext,F+ext)
+    return Z_new  
 
 def drop_feature(Z,W,tree):
     zeros = np.where(np.sum(Z,axis=0) == 0)[0]
@@ -333,12 +332,10 @@ def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w):
         else:
             more = ext
         tree = add(tree,more,res)
-        Z,hard_exit = draw_feature(Z,tree,res,more)
-        if hard_exit == 1:
-            return (Z,W,tree,hard_exit)
+        Z = draw_feature(Z,tree,res,more)
         W = np.vstack((W,np.random.normal(0,sig_w,(more,T))))
     #W = sample_W(Y,Z,sig,sig_w)
-    return (Z,W,tree,hard_exit)
+    return (Z,W,tree)
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     pb = pb_init(D,F)
@@ -387,11 +384,9 @@ def ugibbs_sample(Y,ext,sig,sig_w,iterate,K,data_run):
         ll_list.append(log_data_zw(Y,Z,W,sig))
         F,D = get_FD(tree)
         f_count.append(F)
-        Z,W,tree,hard_exit = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w)
+        Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w)
         end = time.time()
         iter_time.append(end - start)
-        if hard_exit:
-            return ([],[],[],[],[])
     iter_time = np.cumsum(iter_time)
     return (ll_list,iter_time,f_count,Z,W)
 
@@ -404,25 +399,25 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 32 #all conditionals will be multiples of 1/res 
+    res = 64 #all conditionals will be multiples of 1/res 
     F = 4 #features
     D = res**F #discretization
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
-    sig_w = 5.0
+    sig_w = 0.8
     Y,Z_gen = generate_data(res,D,F,N,T,sig)
-    iterate = 100
+    iterate = 1000
     #active features
     K = 1
-    ext = 2
+    ext = 1
 #    profile.run('ugibbs_sample(Y,ext,sig,sig_w,iterate,K)') 
-    runs = 10
+    runs = 1
     ll_data = np.zeros((runs,iterate))
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))
     valid = 0
-    while valid <= runs:
+    while valid < runs:
         ll_list,iter_time,f_count,Z,W = ugibbs_sample(Y,ext,sig,sig_w,iterate,K,valid)
         if len(ll_list) == 0:
             continue

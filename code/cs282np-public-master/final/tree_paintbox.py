@@ -82,7 +82,6 @@ def drop_tree(tree,zeros):
 
 #draw from paintbox conditioned on row    
 def conditional_draw(tree,row,ext,tot):
-    hard_exit = 0
     vec = get_vec(tree)
     if len(row) == 0:
         z_index = 0
@@ -101,12 +100,11 @@ def conditional_draw(tree,row,ext,tot):
         roulette = vec
         normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
         chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
-        hard_exit = 1
         print("TypeError")
                
     binary = map(int,"{0:b}".format(chosen))
     pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
-    return pad_binary,hard_exit
+    return pad_binary
     
 # add a feature to the end
 def add(tree,ext,res):
