@@ -56,9 +56,9 @@ def update(tree):
             
 #drop last feature
 def drop_tree(tree,zeros):
-    print("drop tree")
-    print(zeros)
-    print(tree)
+    #print("drop tree")
+    #print(zeros)
+    #print(tree)
     ctree,ptree = tree
     zeros = zeros[::-1]
     for z in zeros:
@@ -66,8 +66,8 @@ def drop_tree(tree,zeros):
         if F == 1:
             ctree = np.zeros((0,0))
         else:
-            print("decreasing")
-            print(F)
+            #print("decreasing")
+            #print(F)
             copy = np.copy(ctree)
             for i in range(z,F-1): 
                 for j in range(2**z):
@@ -75,12 +75,14 @@ def drop_tree(tree,zeros):
             ctree = ctree[:F-1,:2**(F-2)]
         
     tree = update((ctree,ptree))
-    print("after drop")
+    #print("after drop")
     ctree,ptree = tree
-    print(ctree.shape)
+    #print(ctree.shape)
     return tree
-    
+
+#draw from paintbox conditioned on row    
 def conditional_draw(tree,row,ext,tot):
+    hard_exit = 0
     vec = get_vec(tree)
     if len(row) == 0:
         z_index = 0
@@ -89,12 +91,22 @@ def conditional_draw(tree,row,ext,tot):
             z_index = int(''.join(map(str, row)).replace(".0",""),2)*(2**ext)
         except ValueError:
             print("ValueError")
+            
     roulette = vec[z_index:z_index + 2**ext]
     normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
-    chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0]) + z_index
+                       
+    try:
+        chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0]) + z_index
+    except TypeError:
+        roulette = vec
+        normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
+        chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+        hard_exit = 1
+        print("TypeError")
+               
     binary = map(int,"{0:b}".format(chosen))
     pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
-    return pad_binary
+    return pad_binary,hard_exit
     
 # add a feature to the end
 def add(tree,ext,res):
