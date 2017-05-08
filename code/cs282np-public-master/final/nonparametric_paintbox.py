@@ -211,6 +211,7 @@ def excise(Z,vec,start,mark):
         if ignore == 0:
             zp = zp+np.log(float(vec[index])) 
     return zp
+    
 #Algorithm: Perform tree updates on vectorized paintbox
 def sample_pb(Z,tree,res):
     F,D = get_FD(tree)
@@ -368,11 +369,12 @@ def ugibbs_sample(Y,ext,sig,sig_w,iterate,K,data_run):
     for it in range(iterate):
         
         start = time.time()
-        print("iteration: " + str(it))
         N,K = Z.shape
         #sample Z
         Z = sample_Z(Y,Z,W,sig,sig_w,tree)
-        print("Sparsity: " + str(np.sum(Z,axis=0)))
+        if it%10 == 0:
+            print("iteration: " + str(it))
+            print("Sparsity: " + str(np.sum(Z,axis=0)))
         #sample paintbox
         tree = sample_pb(Z,tree,res)
         #ctree,ptree = tree
@@ -399,20 +401,20 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 64 #all conditionals will be multiples of 1/res 
+    res = 4 #all conditionals will be multiples of 1/res 
     F = 4 #features
     D = res**F #discretization
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1
-    sig_w = 0.8
+    sig_w = 0.7
     Y,Z_gen = generate_data(F,N,T,sig)
     iterate = 1000
     #active features
     K = 1
     ext = 1
 #    profile.run('ugibbs_sample(Y,ext,sig,sig_w,iterate,K)') 
-    runs = 1
+    runs = 10
     ll_data = np.zeros((runs,iterate))
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))

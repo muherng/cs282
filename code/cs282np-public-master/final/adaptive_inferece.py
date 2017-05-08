@@ -197,7 +197,7 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
         K = Z.shape[1]
     return Z
 
-def excise(Z,vec,start,mark):
+def excise1(Z,vec,start,mark):
     N,F = Z.shape
     zp = 0.0
     for i in range(N):
@@ -212,20 +212,48 @@ def excise(Z,vec,start,mark):
         if ignore == 0:
             zp = zp+np.log(float(vec[index])) 
     return zp
+
+def excise2(compact,vec,start_zero,end_one):
+    zp = 0
+    for i in range(start_zero,end_one+1):
+        if compact[i] != 0:
+            if vec[i] == 0:
+                zp = 0
+                break
+            else:
+                zp = zp + compact[i]*np.log(float(vec[i]))
+    return zp
+    
+def Z_compact(Z):
+    N,F = Z.shape
+    sort = np.zeros(N)
+    for i in range(N):
+        sort[i] = int(''.join(map(str, Z[i,:])).replace(".0",""),2)
+    sort = np.sort(sort)
+    compact = np.zeros(2**F)
+    for i in range(N):
+        compact[int(sort[i])] = compact[int(sort[i])] + 1 
+    return compact
 #Algorithm: Perform tree updates on vectorized paintbox
 def sample_pb(Z,tree,res):
     bound = 2 #the exponent
     F,D = get_FD(tree)
     ctree,ptree = tree
     vec = get_vec(tree)
+    compact = Z_compact(Z)
     #iterate over features (row of paintbox)
+    start_pb = time.time()
+    count = 0
     for i in range(F):
         #iterate over nodes j in tree layer i 
         for j in range(2**i):
             start_zero = j*2**(F-i)
+            end_one = (j+1)*2**(F-i) - 1
+            if np.sum(compact[start_zero:end_one+1]) == 0:
+                continue
+            count = count + 1
             end_zero = j*2**(F-i) + 2**(F-i-1) - 1
             start_one =  j*2**(F-i) + 2**(F-i-1)
-            end_one = (j+1)*2**(F-i) - 1
             tot = np.sum(vec[start_zero:end_one+1])
             if tot == 0:
                 continue
@@ -265,7 +293,8 @@ def sample_pb(Z,tree,res):
                             mat_vec[mat_pos,start_one:end_one+1] = ratio_one*mat_vec[mat_pos,start_one:end_one+1]
                             mat_vec[mat_pos,start_zero:end_zero+1] = ratio_zero*mat_vec[mat_pos,start_zero:end_zero+1]
                     #bottleneck line  
-                    val = excise(Z,mat_vec[mat_pos,:],start,i)
+                    #val = excise(Z,mat_vec[mat_pos,:],start,i)
+                    val = excise2(compact,mat_vec[mat_pos,:],start_zero,end_one)
                     #val = Z_vec(Z,mat_vec[k,:])
                     if math.isinf(val) or math.isnan(val) or val == 0:
                         roulette.append(0.0)
@@ -280,18 +309,13 @@ def sample_pb(Z,tree,res):
                 except TypeError:
                     #BEWARE YOU ARE SETTING A PARAMETER
                     chosen = 1
-                    #chosen = int(round(res*old_prob))
-                    #print("INVARIANT BROKEN")
-                #print("Before Paintbox Update")
-                #run_line = Z_vec(Z,vec)
+                    print("INVARIANT BROKEN")
                 vec = mat_vec[chosen,:]
                 ctree[i,j] = float(chosen+lbound)/res
-                #print(roulette)
-                #print("After Paintbox Update")
-                #run_line = Z_vec(Z,vec)
-                #print("Broken Paintbox Update")
+    end_pb = time.time()
+    lapse = end_pb-start_pb
     tree = update((ctree,ptree))
-    return tree
+    return tree,lapse
 
 #find posterior mean of W 
 def mean_w(Y,Z):
@@ -343,7 +367,7 @@ def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w):
     #run_line = Z_vec(Z,vec)
     #print("Broken Invariant After Drop")
     F,D = get_FD(tree)
-    if F > 8:
+    if F >= 10:
         return (Z,W,tree)
     else:
         if F + ext < K:
@@ -384,20 +408,23 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
     W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     ll_list = [] 
     iter_time = [] 
-    f_count = []  
+    f_count = [] 
+    lapse_data = [] 
     for it in range(iterate):
         if it%hold == 0:
             if res < 2**log_res:
                 res = res*2
         
         start = time.time()
-        print("iteration: " + str(it))
         N,K = Z.shape
         #sample Z
         Z = sample_Z(Y,Z,W,sig,sig_w,tree)
-        print("Sparsity: " + str(np.sum(Z,axis=0)))
+        if it%10 == 0:
+            print("iteration: " + str(it))
+            print("Sparsity: " + str(np.sum(Z,axis=0)))
         #sample paintbox
-        tree = sample_pb(Z,tree,res)
+        tree,lapse = sample_pb(Z,tree,res)
+        #print(lapse)
         #sample W        
         W = sample_W(Y,Z,sig,sig_w)
         #add new features
@@ -408,8 +435,9 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
         Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w)
         end = time.time()
         iter_time.append(end - start)
+        lapse_data.append(lapse)
     iter_time = np.cumsum(iter_time)
-    return (ll_list,iter_time,f_count,Z,W)
+    return (ll_list,iter_time,f_count,lapse_data,Z,W)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
     plt.plot(data_x,data_y)
@@ -428,29 +456,46 @@ if __name__ == "__main__":
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1 #noise
-    sig_w = 0.8 #feature deviation
+    sig_w = 0.7 #feature deviation
     Y,Z_gen = generate_data(F,N,T,sig)
     iterate = 1000
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
-#    profile.run('ugibbs_sample(Y,ext,sig,sig_w,iterate,K)') 
+#    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
+    
     runs = 10
     ll_data = np.zeros((runs,iterate))
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))
+    lapse_data = np.zeros((runs,iterate))
     valid = 0
     while valid < runs:
-        ll_list,iter_time,f_count,Z,W = ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)
+        ll_list,iter_time,f_count,lapse,Z,W = ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)
         if len(ll_list) == 0:
             continue
         ll_data[valid,:] = ll_list
         ll_time[valid,:] = iter_time
         feature[valid,:] = f_count
+        lapse_data[valid,:] = lapse
         valid += 1
+    
+#    plot_feature = [num for num in range(1,int(np.max(feature[:,iterate-1])+1))]    
+#    plot_lapse = [0 for i in range(len(plot_feature))]
+#    all_sums = [0 for i in range(len(plot_feature))]
+#    for i in range(len(plot_feature)):
+#            for row in range(runs):
+#                indices = [x for x in range(iterate) if feature[row,x] == i]
+#                all_sums[i] = all_sums[i] + len(indices)
+#                plot_lapse[i] = np.sum(lapse_data[row,indices])
+#            if plot_lapse[i] != 0:
+#                plot_lapse[i] = float(plot_lapse[i])/all_sums[i]
+#    plt.plot(plot_feature, plot_lapse, 'ro')
+#    plt.show()
     
     np.savetxt("log_likelihood.csv", ll_data, delimiter=",")
     np.savetxt("time.csv", ll_time, delimiter=",")
     np.savetxt("feature.csv", feature, delimiter=",")
+    np.savetxt("lapse.csv", lapse_data, delimiter=",")
     
     ll_avg = 1./runs*np.sum(ll_data,axis=0)
     time_avg = 1./runs*np.sum(ll_time,axis=0)
@@ -484,11 +529,32 @@ if __name__ == "__main__":
     data_y = f_avg
     plot(title,x_axis,y_axis,data_x,data_y)
     
-    #pb_scale = scale(pb)
-    #plt.imshow(pb_scale,interpolation='nearest')
-    #plt.show()   
+#    pb_scale = scale(pb)
+#    plt.imshow(pb_scale,interpolation='nearest')
+#    plt.show()   
     #print(ll_list)
     
     #plt.imshow(W,interpolation='nearest')
     #plt.show()
     #display_W(W)
+    
+    #plt.plot(pf1,pl1,'bs',pf2,pl2,'ro')
+    #plt.title("Paintbox Sampling Time vs. Features")
+    #plt.xlabel("Active Features")
+    #plt.ylabel("time")
+    #plt.show()
+    
+    #pylab.plot(f1,l1,'bs')
+    #pylab.plot(f2,l2,'ro')
+    #pylab.legend(loc='upper left')
+    #pylab.title("Paintbox Sampling Time vs. Features")
+    #pylab.xlabel("Active Features")
+    #pylab.ylabel("time")
+    #plt.show()
+    
+#    pylab.plot(time_avg2,ll_avg2,label="nonadaptive")
+#    pylab.plot(time_avg1,ll_avg1,label="adaptive")
+#    pylab.title("Nonparametric Paintbox: Log Likelihood vs. Time")
+#    pylab.xlabel("Time")
+#    pylab.ylabel("Log Likelihood")
+#    pylab.legend(loc='upper left')
