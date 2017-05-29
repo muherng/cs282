@@ -19,11 +19,7 @@ from scipy.stats import norm
 import math 
 from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree,conditional_draw
 import time
-#There are a variety of edge case considerations when it comes to vectorized 
-#form of the paintboxes, this leads me to believe trees are the right idea
-#it turns out you can query trees very quickly 
-#update for trees basically same speed, and much easier to understand
-#Next time write down a pro-con functionality list and think it through
+
 #vector representation of paintbox
 def vectorize(pb):
     F,D = pb.shape
@@ -63,6 +59,8 @@ def log_w_sig(W,sig):
         for j in range(T):
             like = like + -0.5 * (1./(sig**2)) * W[i,j]**2
     return like
+    
+
 #probability of Z given the vectorized paintbox 
 #henceforth we will be working over vectorized paintboxes.
 #we unvectorize only for visual debugging. 
@@ -363,9 +361,6 @@ def drop_feature(Z,W,tree):
 def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w):
     ctree,ptree = tree
     Z,W,tree = drop_feature(Z,W,tree)
-    #vec = get_vec(tree)
-    #run_line = Z_vec(Z,vec)
-    #print("Broken Invariant After Drop")
     F,D = get_FD(tree)
     if F >= 10:
         return (Z,W,tree)
@@ -424,11 +419,9 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
             print("Sparsity: " + str(np.sum(Z,axis=0)))
         #sample paintbox
         tree,lapse = sample_pb(Z,tree,res)
-        #print(lapse)
         #sample W        
         W = sample_W(Y,Z,sig,sig_w)
         #add new features
-        #ll_list.append(log_data_zw(Y,Z,W,sig) + Z_vec(Z,vec) + log_w_sig(W,sig))
         ll_list.append(log_data_zw(Y,Z,W,sig))
         F,D = get_FD(tree)
         f_count.append(F)
