@@ -396,7 +396,7 @@ def slice_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 ,
     
 # The uncollapsed LG model. In a more real setting, one would want to
 # additionally sample/optimize the hyper-parameters!  
-def ugibbs_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 , init_Z=None ):
+def ugibbs_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=100 , init_Z=None ):
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
@@ -491,7 +491,7 @@ def ugibbs_sampler( data_set , alpha , sigma_a=5.0 , sigma_n=.1 , iter_count=35 
 
 # The collapsed LG model from G&G.  In a more real setting, one would
 # want to additionally sample/optimize the hyper-parameters!
-def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=5 , init_Z=None ): 
+def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=100 , init_Z=None ): 
     #no idea how to set K_max
     data_count = data_set.shape[0] 
     N = data_count
@@ -571,9 +571,9 @@ def cgibbs_sampler( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=5 , i
         # can visualize it later
         ll_set[ mcmc_iter ] = cllikelihood( data_set , Z , sigma_a , sigma_n )
         #lp_set[ mcmc_iter ] = lpriorZ( Z , alpha ) 
-        #A = mean_A( data_set , Z , sigma_a , sigma_n )
-        #A_set.append( A ); 
-        #Z_set.append(Z)
+        A = mean_A( data_set , Z , sigma_a , sigma_n )
+        A_set.append( A ); 
+        Z_set.append(Z)
         #K_set.append(active_K)
         # print
         #print mcmc_iter , Z.shape[1] , ll_set[ mcmc_iter ] , lp_set[ mcmc_iter ] 
@@ -591,7 +591,7 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 
 if __name__ == "__main__":
     from make_toy_data import generate_data
-    iterate = 5
+    iterate = 100
     alpha = 2
     data_count = 50
     data_set , Z , A = generate_data( data_count , 'infinite-random' ) 
@@ -605,13 +605,13 @@ if __name__ == "__main__":
     #K_set, Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha)
     Z_set, A_set, ll_set, lp_set = cgibbs_sampler(data_set, alpha,iter_count = iterate)
 
-    Z_final = Z_set[iterate-1]
-    plotRowHistogram(Z_final)
-    plotMatrixHistogram(Z_final)
-    title = 'Slice Sampler: log likelihood vs. iterations'
-    x_axis = 'iterations'
-    y_axis = 'log likelihood'
-    data_x = [i for i in range(1,iterate+1)]
-    data_y = ll_set
-    plot(title,x_axis,y_axis,data_x,data_y)
-    print(ll_set)
+#    Z_final = Z_set[iterate-1]
+#    plotRowHistogram(Z_final)
+#    plotMatrixHistogram(Z_final)
+#    title = 'Slice Sampler: log likelihood vs. iterations'
+#    x_axis = 'iterations'
+#    y_axis = 'log likelihood'
+#    data_x = [i for i in range(1,iterate+1)]
+#    data_y = ll_set
+#    plot(title,x_axis,y_axis,data_x,data_y)
+#    print(ll_set)

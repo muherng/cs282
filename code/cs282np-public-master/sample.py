@@ -43,9 +43,9 @@ def sample(m , alpha, N,  iterations):
     #print pts[num_new]
     return pts[num_new]
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
 
-    print sample( [0.5,0.4,0.3,0.2],  1, 15,  10000)
+    #print sample( [0.5,0.4,0.3,0.2],  1, 15,  10000)
 
     
  

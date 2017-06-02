@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sat Apr 15 22:50:22 2017
-
 @author: morrisyau
 """
 
@@ -159,6 +158,7 @@ def add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w):
 def sample_Z(Y,Z,W,sig,sig_w,tree):
     N,T = Y.shape
     N,K = Z.shape
+    prob_matrix = np.zeros([N,K])
     vec = get_vec(tree)
     for i in range(N):
         for j in range(K):
@@ -171,10 +171,12 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
             if zp_one == 0 or zp_zero == 0:
                 if zp_one == 0:
                     Z[i,j] == 0
+                    prob_matrix[i,j] = 0
                 if zp_zero == 0:
                     if np.sum(Z,axis=0)[j] == 0:
                         print("Feature Kick: Undesirable Behavior")
                     Z[i,j] == 1
+                    prob_matrix[i,j] = 1
             else:
                 #numerical adjustment
                 yz_one = log_uncollapsed(Y[i,:],Z_one[i,:],W,sig)
@@ -189,11 +191,12 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
                 #if math.isnan(p_one):
                 #    print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
+                prob_matrix[i,j] = p_one
             #var = Z_vec(Z,vec)
             #if math.isinf(Z_vec(Z,vec)):
             #    print("TOTALLY ILLEGAL") 
         K = Z.shape[1]
-    return Z
+    return (Z,prob_matrix)
 
 def excise1(Z,vec,start,mark):
     N,F = Z.shape
@@ -257,7 +260,7 @@ def sample_pb(Z,tree,res):
                 continue
             else:
                 binary = map(int,"{0:b}".format(int(start_zero)))
-                start = np.concatenate((np.zeros(F-len(binary)), binary))
+                #start = np.concatenate((np.zeros(F-len(binary)), binary))
                 old_prob = float(np.sum(vec[start_one:end_one+1]))/tot 
                 unit = float(np.sum(vec[start_zero:end_one+1]))/res
                 roulette = []
@@ -358,11 +361,11 @@ def drop_feature(Z,W,tree):
     return (Z,W,tree)
     
 
-def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w):
+def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop):
     ctree,ptree = tree
     Z,W,tree = drop_feature(Z,W,tree)
     F,D = get_FD(tree)
-    if F >= 10:
+    if F >= 10 or drop:
         return (Z,W,tree)
     else:
         if F + ext < K:
@@ -413,7 +416,7 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
         start = time.time()
         N,K = Z.shape
         #sample Z
-        Z = sample_Z(Y,Z,W,sig,sig_w,tree)
+        Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
         if it%10 == 0:
             print("iteration: " + str(it))
             print("Sparsity: " + str(np.sum(Z,axis=0)))
@@ -425,12 +428,15 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
         ll_list.append(log_data_zw(Y,Z,W,sig))
         F,D = get_FD(tree)
         f_count.append(F)
-        Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w)
+        drop = 0
+        if it == iterate - 1:
+            drop = 1
+        Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop)
         end = time.time()
         iter_time.append(end - start)
         lapse_data.append(lapse)
     iter_time = np.cumsum(iter_time)
-    return (ll_list,iter_time,f_count,lapse_data,Z,W)
+    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
     plt.plot(data_x,data_y)
@@ -449,21 +455,21 @@ if __name__ == "__main__":
     T = 36 #length of datapoint
     N = 100 #data size
     sig = 0.1 #noise
-    sig_w = 0.7 #feature deviation
+    sig_w = 0.6 #feature deviation
     Y,Z_gen = generate_data(F,N,T,sig)
     iterate = 1000
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
     
-    runs = 10
+    runs = 1
     ll_data = np.zeros((runs,iterate))
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))
     lapse_data = np.zeros((runs,iterate))
     valid = 0
     while valid < runs:
-        ll_list,iter_time,f_count,lapse,Z,W = ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)
+        ll_list,iter_time,f_count,lapse,Z,W,prob_matrix = ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)
         if len(ll_list) == 0:
             continue
         ll_data[valid,:] = ll_list
@@ -522,6 +528,16 @@ if __name__ == "__main__":
     data_y = f_avg
     plot(title,x_axis,y_axis,data_x,data_y)
     
+    approx = np.dot(Z,W)
+    for i in range(10):
+        print("sample: " + str(i))
+        print("features probability")
+        print(prob_matrix[i,:])
+        print("features selected")
+        print(Z[i,:])
+        display_W(approx[i:i+1,:])
+        print("data: " + str(i))
+        display_W(Y[i:i+1,:])
 #    pb_scale = scale(pb)
 #    plt.imshow(pb_scale,interpolation='nearest')
 #    plt.show()   

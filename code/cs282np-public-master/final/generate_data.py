@@ -17,12 +17,12 @@ from tree_paintbox import gen_tree,update,add,get_vec,get_FD
 
 #size of paintbox
 res = 2
-F = 2 #features
+F = 4 #features
 D = res**F #discretization
-T = F #length of datapoint
+T = 36 #length of datapoint
 
 #data size 
-N = 10
+N = 100
 
 #initalize features
 #this is a hack, W is F by T matrix 
@@ -142,7 +142,7 @@ def draw_Z_tree(tree,N):
     #generate Z
     for i in range(D):
         density = draws[i]
-        binary = map(int,"{0:b}".format(i))
+        binary = list(map(int,"{0:b}".format(i)))
         row = [0]*(F-len(binary)) + binary
         data_chunk = np.tile(row,(density,1))
         if i == 0:
@@ -179,12 +179,18 @@ def generate_data(F,N,T,sig):
     
     #Z = draw_Z(pb,D,F,N,T)
     Z = np.random.binomial( 1 , .25 , [ N , F ] )
+    
+    #for debugging the uncollapsed IBP we're going to fix the Z
+    #Z = np.zeros([N,F])
+    #Z[:,0] = np.random.binomial(1,0.5,N)
+    
+    
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
     return (Y,Z)    
     
-#Y,pb = generate_data(res,D,F,N,T,sig)
+Y,Z = generate_data(F,N,T,sig)
 
 
 

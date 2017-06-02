@@ -99,38 +99,37 @@ def history_count_set( Z ):
     return count_set 
 
 # Prior on Z
-def lpriorZ( Z , alpha ):
-    N,K = Z.shape
-    m = [0 for x in range(K)]
-    for j in range(K):
-        for j in range(N):
-            m[j] = m[j] + Z[i][j]
-	
-	harmonic = 0
-	K = [0 for x in range(len(Z[0]))]
-	limit = [ 0 for x in range(len(Z[0]))]
-
-	for i in range(1,len(Z[0])+1):
-		harmonic = harmonic + 1/(1.0*i)
-	for i in range(len(Z[0])):
-		for j in range(len(Z[1])):
-			if Z[i][j] == 1:
-				limit[i] = j
-	K[0] = limit[0]	
-	for i in range(1,len(Z[0])):
-		K[i] = limit[i] - limit[i-1]
-	
-
-	prod1 = 1
-	for i in range(len(Z[0])):
-		prod = prod * K[i]
-	prod2 = 1
-	for k in range(len(Z[1])):
-		(math.factorial(len(Z[0]) - m[k]) * math.factorial(m[k]-1)) / math.factorial(N)
-    	
-	lp = alpha**(len(Z[1])) / ( prod1) * np.exp(-alpha * harmonic) * prod2
-
-	return lp 
+#def lpriorZ( Z , alpha ):
+#    N,K = Z.shape
+#    m = [0 for x in range(K)]
+#    for j in range(K):
+#        for j in range(N):
+#            m[j] = m[j] + Z[i][j]	
+#	harmonic = 0
+#	K = [0 for x in range(len(Z[0]))]
+#	limit = [ 0 for x in range(len(Z[0]))]
+#
+#	for i in range(1,len(Z[0])+1):
+#		harmonic = harmonic + 1/(1.0*i)
+#	for i in range(len(Z[0])):
+#		for j in range(len(Z[1])):
+#			if Z[i][j] == 1:
+#				limit[i] = j
+#	K[0] = limit[0]	
+#	for i in range(1,len(Z[0])):
+#		K[i] = limit[i] - limit[i-1]
+#	
+#
+#	prod1 = 1
+#	for i in range(len(Z[0])):
+#		prod = prod * K[i]
+#	prod2 = 1
+#	for k in range(len(Z[1])):
+#		(math.factorial(len(Z[0]) - m[k]) * math.factorial(m[k]-1)) / math.factorial(N)
+#    	
+#	lp = alpha**(len(Z[1])) / ( prod1) * np.exp(-alpha * harmonic) * prod2
+#
+#	return lp 
     
 # Prior on A
 def lpriorA( A , sigma_a=5.0 ):

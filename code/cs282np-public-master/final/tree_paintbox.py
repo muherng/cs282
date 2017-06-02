@@ -95,7 +95,7 @@ def conditional_draw(tree,row,ext,tot):
         chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
         print("TypeError") 
         print("Conditional Error")
-    binary = map(int,"{0:b}".format(chosen))
+    binary = list(map(int,"{0:b}".format(chosen)))
     pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
     return pad_binary
     

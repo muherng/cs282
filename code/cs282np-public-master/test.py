@@ -9,13 +9,13 @@ import pdb
 
 # ---- Set up ---- #
 # Generate data from the toy G&G blocks (easy to visualize) 
-data_count = 50
+data_count = 100
 data_type = 'gg' 
 data_set , Z , A = generate_data( data_count , data_type )
 
 # What kind of inference?
 #inference_algorithm = 'cgibbs'
-# inference_algorithm = 'ugibbs' 
+#inference_algorithm = 'ugibbs' 
 #inference_algorithm = 'slice'
 inference_algorithm = 'vi' 
 

@@ -119,7 +119,7 @@ def marginal_likelihood(approx,alpha,D,K,N,nu,phi_mean,phi_cov,tau,sigma_a,sigma
     term6 = sub1 + sub2
     return term1 + term2 + term3 + term4 + term5 + term6
 # Run the VI  
-def run_vi( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=35 , feature_count=4 ):
+def run_vi( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=1000 , feature_count=4 ):
     data_count = data_set.shape[0]
     dim_count = data_set.shape[1] 
     X = data_set
