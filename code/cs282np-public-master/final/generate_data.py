@@ -43,7 +43,7 @@ def generate_gg_blocks():
     W[1, [ 3 , 4 , 5 , 9 , 11 , 15 , 16 , 17  ] ] = 1 
     W[2, [ 18 , 24 , 25 , 30 , 31 , 32 ] ] = 1
     W[3, [ 21 , 22 , 23 , 28 , 34 ] ] = 1 
-    W = W - 0.5*np.ones([4,36])
+    #W = W - 0.5*np.ones([4,36])
     return W 
 
 def scale(pb):
@@ -179,6 +179,11 @@ def generate_data(F,N,T,sig):
     
     #Z = draw_Z(pb,D,F,N,T)
     Z = np.random.binomial( 1 , .25 , [ N , F ] )
+    chunk = N/F
+    identity = np.eye(4)
+    for i in range(F):
+        Z[i*chunk:(i+1)*chunk] = np.tile(identity[i,:],(chunk,1))
+    Z = np.random.permutation(Z)
     
     #for debugging the uncollapsed IBP we're going to fix the Z
     #Z = np.zeros([N,F])
@@ -187,7 +192,9 @@ def generate_data(F,N,T,sig):
     
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
-    Y = np.dot(Z,W) + E
+    #Y = np.dot(Z,W) + E
+    print(W)
+    Y = np.dot(Z,W) 
     return (Y,Z)    
     
 Y,Z = generate_data(F,N,T,sig)

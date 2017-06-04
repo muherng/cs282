@@ -50,16 +50,16 @@ def get_q(K,tau):
 def get_approx(tau,q,K):
     approx = np.zeros(K)
     for k in range(K):
-        q_mult = q[k,:k]
-        g_mult = np.array([sps.digamma(tau[m,1]) for m in range(k)])
+        q_mult = q[k,:k+1]
+        g_mult = np.array([sps.digamma(tau[m,1]) for m in range(k+1)])
         term1 = np.dot(q_mult,g_mult)
-        q_mult = np.array([q[k,m+1:k].sum() for m in range(k-1)])
-        g_mult = np.array([sps.digamma(tau[m,0]) for m in range(k-1)])
+        q_mult = np.array([q[k,m+1:k+1].sum() for m in range(k)])
+        g_mult = np.array([sps.digamma(tau[m,0]) for m in range(k)])
         term2 = np.dot(q_mult, g_mult)
-        q_mult = np.array([q[k,m:k].sum() for m in range(k)])
-        g_mult = np.array([sps.digamma(tau[m,0]+tau[m,1]) for m in range(k)])
+        q_mult = np.array([q[k,m:k+1].sum() for m in range(k+1)])
+        g_mult = np.array([sps.digamma(tau[m,0]+tau[m,1]) for m in range(k+1)])
         term3 =  np.dot(q_mult,g_mult)
-        q_mult = q[k,:k]
+        q_mult = q[k,:k+1]
         g_mult = np.log(q_mult)
         term4 = np.dot(q_mult,g_mult)
         approx[k] = term1 + term2 - term3 - term4
@@ -119,7 +119,7 @@ def marginal_likelihood(approx,alpha,D,K,N,nu,phi_mean,phi_cov,tau,sigma_a,sigma
     term6 = sub1 + sub2
     return term1 + term2 + term3 + term4 + term5 + term6
 # Run the VI  
-def run_vi( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=1000 , feature_count=4 ):
+def run_vi( data_set , alpha , sigma_a=5 , sigma_n=.1 , iter_count=50 , feature_count=7 ):
     data_count = data_set.shape[0]
     dim_count = data_set.shape[1] 
     X = data_set

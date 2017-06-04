@@ -87,14 +87,23 @@ def debug(Z,vec,D):
     return -1
 
 #performs Z_vec for a single row
-def Z_paintbox(z_row,vec,sig,D):
+def Z_paintbox(z_row,vec):
     z_index = int(''.join(map(str, z_row)).replace(".0",""),2)
     zp = float(vec[z_index])
     return zp
     
+#def log_data_zw(Y,Z,W,sig):
+#    delta = Y - np.dot(Z,W)
+#    delta_sum = np.trace(np.dot(delta.T,delta))
+#    ll =  -1./(2*sig**2) * delta_sum
+#    return ll
+
 def log_data_zw(Y,Z,W,sig):
     delta = Y - np.dot(Z,W)
-    delta_sum = np.trace(np.dot(delta.T,delta))
+    if len(Y.shape) == 1:
+        delta_sum = np.dot(delta,delta)   
+    else:
+        delta_sum = np.trace(np.dot(delta.T,delta))
     ll =  -1./(2*sig**2) * delta_sum
     return ll
     
@@ -166,8 +175,8 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
             Z_zero = np.copy(Z)
             Z_one[i,j] = 1
             Z_zero[i,j] = 0
-            zp_one = Z_paintbox(Z_one[i,:],vec,sig,D)
-            zp_zero = Z_paintbox(Z_zero[i,:],vec,sig,D)
+            zp_one = Z_paintbox(Z_one[i,:],vec)
+            zp_zero = Z_paintbox(Z_zero[i,:],vec)
             if zp_one == 0 or zp_zero == 0:
                 if zp_one == 0:
                     Z[i,j] == 0
@@ -377,6 +386,23 @@ def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop):
         W = np.vstack((W,np.random.normal(0,sig_w,(more,T))))
     #W = sample_W(Y,Z,sig,sig_w)
     return (Z,W,tree)
+    
+def pred_ll_paintbox(held,W,tree,sig):
+    #should you be comparing the predictive log likelihood?  I think you should
+    R,T = held.shape
+    K,T = W.shape
+    log_pred = 0
+    vec = get_vec(tree)
+    for i in range(R):
+        pred_row = 0
+        for j in range(2**K):
+            binary = map(int,"{0:b}".format(j))
+            pad_binary = [0]*(K-len(binary)) + binary
+            log_z_post = Z_paintbox(pad_binary,vec)
+            total_z = np.array(pad_binary)
+            pred_row = pred_row + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+        log_pred = log_pred + np.log(pred_row)
+    return log_pred
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     pb = pb_init(D,F)
@@ -395,7 +421,7 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     
     return (ll_list,Z,W,pb)
     
-def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
+def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
     print("Trial Number: " + str(data_run))
     N,T = Y.shape
     res = 1
@@ -408,6 +434,7 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
     iter_time = [] 
     f_count = [] 
     lapse_data = [] 
+    pred_ll = []
     for it in range(iterate):
         if it%hold == 0:
             if res < 2**log_res:
@@ -428,6 +455,9 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
         ll_list.append(log_data_zw(Y,Z,W,sig))
         F,D = get_FD(tree)
         f_count.append(F)
+        #predictive log likelihood
+        pred_ll.append(pred_ll_paintbox(held_out, W, tree, sig))
+        #handling last iteration edge case
         drop = 0
         if it == iterate - 1:
             drop = 1
@@ -436,7 +466,7 @@ def ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,data_run):
         iter_time.append(end - start)
         lapse_data.append(lapse)
     iter_time = np.cumsum(iter_time)
-    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix)
+    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
     plt.plot(data_x,data_y)
@@ -447,17 +477,21 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
-    res = 1024 #all conditionals will be multiples of 1/res 
-    log_res = 10 #log of res
-    hold = 100 #hold resolution for # iterations
-    F = 4 #features
-    D = res**F #discretization
+    #res = 128 #all conditionals will be multiples of 1/res 
+    log_res = 7 #log of res
+    hold = 200 #hold resolution for # iterations
+    feature_count = 4 #features
     T = 36 #length of datapoint
-    N = 100 #data size
+    data_count = 100
+    held_out = 100
     sig = 0.1 #noise
-    sig_w = 0.6 #feature deviation
-    Y,Z_gen = generate_data(F,N,T,sig)
-    iterate = 1000
+    sig_w = 0.3 #feature deviation
+    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig)
+    print("Z generated")
+    print(Z_gen)
+    Y = full_data[:data_count,:]
+    held_out = full_data[data_count:,:]
+    iterate = log_res*hold
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
@@ -467,15 +501,17 @@ if __name__ == "__main__":
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))
     lapse_data = np.zeros((runs,iterate))
+    pred_data = np.zeros((runs,iterate))
     valid = 0
     while valid < runs:
-        ll_list,iter_time,f_count,lapse,Z,W,prob_matrix = ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)
+        ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll = ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,valid)
         if len(ll_list) == 0:
             continue
         ll_data[valid,:] = ll_list
         ll_time[valid,:] = iter_time
         feature[valid,:] = f_count
         lapse_data[valid,:] = lapse
+        pred_data[valid,:] = pred_ll
         valid += 1
     
 #    plot_feature = [num for num in range(1,int(np.max(feature[:,iterate-1])+1))]    

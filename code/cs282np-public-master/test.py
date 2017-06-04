@@ -17,7 +17,7 @@ data_set , Z , A = generate_data( data_count , data_type )
 #inference_algorithm = 'cgibbs'
 #inference_algorithm = 'ugibbs' 
 #inference_algorithm = 'slice'
-inference_algorithm = 'vi' 
+inference_algorithm = 'cgibbs' 
 
 # Inference Parameters (note, these do not necessarily match the true parameters!) 
 alpha = 2.0  
