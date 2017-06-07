@@ -155,18 +155,26 @@ def draw_Z_tree(tree,N):
 
 #this is for toy image W    
 def display_W(W):
-    F,T = W.shape
-    image_format = []
-    for i in range(F):
+    if len(W.shape) == 1:
+        T, = W.shape
         dim = int(np.sqrt(T))
-        image_format.append(np.reshape(W[i,:],(dim,dim)))
-        plt.imshow(image_format[i],interpolation='nearest')
+        image_format = np.reshape(W,(dim,dim))
+        plt.imshow(image_format,interpolation='nearest')
         plt.gray()
         plt.show()
+    else:
+        F,T = W.shape
+        image_format = []
+        for i in range(F):
+            dim = int(np.sqrt(T))
+            image_format.append(np.reshape(W[i,:],(dim,dim)))
+            plt.imshow(image_format[i],interpolation='nearest')
+            plt.gray()
+            plt.show()
     return 
         
 
-def generate_data(F,N,T,sig):
+def generate_data(F,N,T,sig,data_type):
     #pb = pb_partition(D,F)
     #pb = pb_random(res,D,F)
     #print("PAINTBOX GENERATING")
@@ -178,12 +186,23 @@ def generate_data(F,N,T,sig):
     E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
     
     #Z = draw_Z(pb,D,F,N,T)
-    Z = np.random.binomial( 1 , .25 , [ N , F ] )
-    chunk = N/F
-    identity = np.eye(4)
-    for i in range(F):
-        Z[i*chunk:(i+1)*chunk] = np.tile(identity[i,:],(chunk,1))
+    Z = np.zeros([N,F])
+    if data_type == 'random':
+        Z = np.random.binomial( 1 , .25 , [ N , F ] )
+    if data_type == 'anti':
+        chunk = N/F
+        indices = np.eye(F)
+        for i in range(F):
+            Z[i*chunk:(i+1)*chunk] = np.tile(indices[i,:],(chunk,1))
+    if data_type == 'corr':
+        chunk = N/6
+        indices = np.array([[0,0,1,1],[0,1,0,1],[1,0,0,1],[0,1,1,0],[1,0,1,0],[1,1,0,0]])
+        for i in range(6):
+            Z[i*chunk:(i+1)*chunk] = np.tile(indices[i,:],(chunk,1))
     Z = np.random.permutation(Z)
+    
+    #for i in range(N):
+    #    Z[i,:] = 
     
     #for debugging the uncollapsed IBP we're going to fix the Z
     #Z = np.zeros([N,F])
@@ -193,11 +212,8 @@ def generate_data(F,N,T,sig):
     #consider ignoring the noise
     #Y = np.dot(Z,W) + E
     #Y = np.dot(Z,W) + E
-    print(W)
-    Y = np.dot(Z,W) 
+    Y = np.dot(Z,W) + E
     return (Y,Z)    
-    
-Y,Z = generate_data(F,N,T,sig)
 
 
 

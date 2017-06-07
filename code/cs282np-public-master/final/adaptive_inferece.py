@@ -18,6 +18,8 @@ from scipy.stats import norm
 import math 
 from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree,conditional_draw
 import time
+from varIBP import run_vi
+from IBP import ugibbs_sampler
 
 #vector representation of paintbox
 def vectorize(pb):
@@ -283,7 +285,8 @@ def sample_pb(Z,tree,res):
                 else:
                     lbound = center - 1
                     ubound = center + 1
-                    
+                #lbound = 0
+                #ubound = res
                 mat_vec = np.tile(vec,(ubound-lbound+1,1))
                 for k in range(lbound,ubound+1):
                     mat_pos = k - lbound
@@ -398,11 +401,29 @@ def pred_ll_paintbox(held,W,tree,sig):
         for j in range(2**K):
             binary = map(int,"{0:b}".format(j))
             pad_binary = [0]*(K-len(binary)) + binary
-            log_z_post = Z_paintbox(pad_binary,vec)
+            log_z_post = np.log(Z_paintbox(pad_binary,vec))
             total_z = np.array(pad_binary)
             pred_row = pred_row + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
         log_pred = log_pred + np.log(pred_row)
     return log_pred
+
+def print_paintbox(tree,W):
+    vec = get_vec(tree)
+    F,D = get_FD(tree)
+    K = int(math.log(D,2))
+    print("outputting paintbox")
+    for j in range(D):
+        binary = map(int,"{0:b}".format(j))
+        pad_binary = [0]*(K-len(binary)) + binary
+        prob = Z_paintbox(pad_binary,vec)
+        if prob > 0.01:
+            pad_binary = np.array(pad_binary)
+            reconstruct = np.dot(pad_binary,W)
+            print("pad binary, reconstruct, probability")
+            print(pad_binary)
+            print(prob)
+            display_W(reconstruct)
+    return 0
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     pb = pb_init(D,F)
@@ -421,7 +442,7 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     
     return (ll_list,Z,W,pb)
     
-def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
+def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
     print("Trial Number: " + str(data_run))
     N,T = Y.shape
     res = 1
@@ -435,6 +456,7 @@ def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
     f_count = [] 
     lapse_data = [] 
     pred_ll = []
+    pred = 0
     for it in range(iterate):
         if it%hold == 0:
             if res < 2**log_res:
@@ -447,6 +469,7 @@ def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         if it%10 == 0:
             print("iteration: " + str(it))
             print("Sparsity: " + str(np.sum(Z,axis=0)))
+            print('predictive log likelihood: ' + str(pred))
         #sample paintbox
         tree,lapse = sample_pb(Z,tree,res)
         #sample W        
@@ -456,7 +479,9 @@ def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         F,D = get_FD(tree)
         f_count.append(F)
         #predictive log likelihood
-        pred_ll.append(pred_ll_paintbox(held_out, W, tree, sig))
+        if it%100 == 0:
+            pred = pred_ll_paintbox(held_out, W, tree, sig)
+            pred_ll.append(pred)
         #handling last iteration edge case
         drop = 0
         if it == iterate - 1:
@@ -466,7 +491,7 @@ def ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         iter_time.append(end - start)
         lapse_data.append(lapse)
     iter_time = np.cumsum(iter_time)
-    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll)
+    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll,tree)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
     plt.plot(data_x,data_y)
@@ -479,19 +504,18 @@ if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
     #res = 128 #all conditionals will be multiples of 1/res 
     log_res = 7 #log of res
-    hold = 200 #hold resolution for # iterations
+    hold = 300 #hold resolution for # iterations
     feature_count = 4 #features
     T = 36 #length of datapoint
     data_count = 100
-    held_out = 100
+    held_out = 32
     sig = 0.1 #noise
-    sig_w = 0.3 #feature deviation
-    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig)
-    print("Z generated")
-    print(Z_gen)
+    sig_w = 0.5 #feature deviation
+    data_type = 'corr'
+    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    iterate = log_res*hold
+    iterate = 2100
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
@@ -501,19 +525,28 @@ if __name__ == "__main__":
     ll_time = np.zeros((runs,iterate))
     feature = np.zeros((runs,iterate))
     lapse_data = np.zeros((runs,iterate))
-    pred_data = np.zeros((runs,iterate))
+    #pred_data = np.zeros((runs,iterate))
     valid = 0
+    algorithm = 'paintbox'
+    #algorithm = 'var'
+    #algorithm = 'uncollapsed'
+    #you'll come back to this
     while valid < runs:
-        ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll = ugibbs_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,valid)
+        if algorithm == 'paintbox':    
+            ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,valid)
+        if algorithm == 'uncollapsed':
+            Z,W,ll_set = ugibbs_sampler(Y,alpha,sig,sig_w,iterate,Z_gen)
+        if algorithm == 'var':
+            nu_set,phi_set,Phi_set,tau_set,pred_ll = run_vi(Y,held_out,alpha,sig_w,sig,iterate,feature_count)
         if len(ll_list) == 0:
             continue
         ll_data[valid,:] = ll_list
         ll_time[valid,:] = iter_time
         feature[valid,:] = f_count
         lapse_data[valid,:] = lapse
-        pred_data[valid,:] = pred_ll
+        #pred_data[valid,:] = pred_ll
         valid += 1
-    
+     
 #    plot_feature = [num for num in range(1,int(np.max(feature[:,iterate-1])+1))]    
 #    plot_lapse = [0 for i in range(len(plot_feature))]
 #    all_sums = [0 for i in range(len(plot_feature))]
@@ -564,6 +597,7 @@ if __name__ == "__main__":
     data_y = f_avg
     plot(title,x_axis,y_axis,data_x,data_y)
     
+    #visual verification of data reconstruction
     approx = np.dot(Z,W)
     for i in range(10):
         print("sample: " + str(i))
@@ -574,6 +608,12 @@ if __name__ == "__main__":
         display_W(approx[i:i+1,:])
         print("data: " + str(i))
         display_W(Y[i:i+1,:])
+    
+    #printing paintbox (only makes sense for single run)
+    print_paintbox(tree,W)    
+        
+        
+        
 #    pb_scale = scale(pb)
 #    plt.imshow(pb_scale,interpolation='nearest')
 #    plt.show()   

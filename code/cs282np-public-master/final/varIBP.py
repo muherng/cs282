@@ -145,12 +145,18 @@ def nu_to_z(nu):
 def Z_posterior(z_row, Z):
     N,K = Z.shape
     Z_post = 1
-    z_prob = 1./N * np.sum(Z,axis=0)
+    z_prob = 1./(N+1) * np.sum(Z,axis=0)
     for i in range(K):
         if z_row[i] == 1:
-            Z_post = Z_post + z_prob[i]
+            if z_prob[i] == 0:
+                Z_post = float('-Inf')
+            else:
+                Z_post = Z_post + math.log(z_prob[i])
         else:
-            Z_post = Z_post + (1 - z_prob[i])
+            if 1 - z_prob[i] == 0:
+                Z_post = float('-Inf')
+            else:
+                Z_post = Z_post + math.log(1 - z_prob[i])
     return Z_post
     
 def pred_ll_IBP(held,Z,W,sig):
@@ -177,7 +183,7 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
     X = data_set
     N = data_count
     D = dim_count
-    K = feature_count
+    K = 10
     #elbo_set = np.zeros( [ iter_count ] )
     pred_ll = list() #predictive log likelihood
     nu_set = list()   # nu are the varitional parameters on Z 
@@ -208,7 +214,8 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
         Phi_set.append( phi_cov ) 
         tau_set.append( tau )
         Z = nu_to_z(nu)
-        pred_ll.append(pred_ll_IBP(held_out, Z, phi_mean,sigma_n))
+        if vi_iter == iter_count - 1:
+            pred_ll.append(pred_ll_IBP(held_out, Z, phi_mean,sigma_n))
     return nu_set , phi_set , Phi_set , tau_set, pred_ll    
 
     
@@ -216,12 +223,13 @@ if __name__ == "__main__":
     iterate = 100
     alpha = 2
     data_count = 100
-    held_out = 100
+    held_out = 32
     sig = 0.1
-    sig_w = 0.7
+    sig_w = 0.5
     feature_count = 4
     T = 36
-    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig)
+    data_type = 'anti'
+    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
     nu_set,phi_set,Phi_set,tau_set,pred_ll = run_vi(Y,held_out,alpha,sig_w,sig,iterate,feature_count)

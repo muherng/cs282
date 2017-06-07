@@ -22,7 +22,7 @@ from generate_data import generate_data,display_W
 # --- Helper Functions --- # 
 
 # Uncollapsed Likelihood 
-def ullikelihood( data_set , Z , A , sigma_n=.1 ):
+def ullikelihood( data_set , Z , A , sigma_n):
     N,D = data_set.shape
     X = data_set
     XZA = X - np.dot(Z,A)
@@ -62,41 +62,6 @@ def A_new(data_set,Z_new,Z_old,A_old,sigma_a,sigma_n):
 
     #return A_new
     return A_new
-
-# Prior on Z
-def lpriorZ( Z , alpha ):
-    N,K = Z.shape
-    m = [0 for x in range(K)]
-    for j in range(K):
-        for j in range(N):
-            m[j] = m[j] + Z[i][j]
-    
-    harmonic = 0
-    K = [0 for x in range(len(Z[0]))]
-    limit = [ 0 for x in range(len(Z[0]))]
-
-
-    for i in range(1,len(Z[0])+1):
-        harmonic = harmonic + 1/(1.0*i)
-    for i in range(len(Z[0])):
-        for j in range(len(Z[1])):
-            if Z[i][j] == 1:
-                limit[i] = j
-    K[0] = limit[0]    
-    for i in range(1,len(Z[0])):
-        K[i] = limit[i] - limit[i-1]
-    
-
-    prod1 = 1
-    for i in range(len(Z[0])):
-        prod = prod * K[i]
-    prod2 = 1
-    for k in range(len(Z[1])):
-        (math.factorial(len(Z[0]) - m[k]) * math.factorial(m[k]-1)) / math.factorial(N)
-        
-    lp = alpha**(len(Z[1])) / ( prod1) * np.exp(-alpha * harmonic) * prod2
-
-    return lp 
     
 
 # Mean function for A 
@@ -106,7 +71,7 @@ def mean_A( data_set , Z , sigma_a=.5 , sigma_n=.1 ):
 
 # --- Resample Functions --- # 
 # Resample A 
-def resample_A( data_set , Z , sigma_a=5.0 , sigma_n=.1 ):
+def resample_A( data_set , Z , sigma_a , sigma_n ):
     X = data_set
     N,K = Z.shape
     D = data_set.shape[1]
@@ -118,94 +83,95 @@ def resample_A( data_set , Z , sigma_a=5.0 , sigma_n=.1 ):
     iZTZI = inv(ZTZ + novera**2*I)
     mean = np.dot(iZTZI,ZTX)
     cov = sigma_n**2*iZTZI
-    #print(mean.shape)
-    #Note, that the covariance is defined for each column is just depressing
     for col in range(D):
-        #might be in NP
         try:
             A[:,col] = SPST.multivariate_normal.rvs(np.squeeze(np.asarray(mean[:,col])),cov)
         except (ValueError,IndexError):
             print('ValueError')
         
     return A
-
-#equation 25
-#you pass mu[k-1]
-def mu_new_update(mu, mu_prev, alpha, N):
-    if (mu < mu_prev) & (mu>0):
-        tmp=0
-        for i in range(N):
-            tmp += 1/float(i+1)*(1-mu)**(i+1)
-        return np.exp(alpha*tmp)*mu**(alpha-1)*(1-mu)**N
-    else:
-        return 0
-    
-#equation 28
-#you pass mu[k+1] and mu[k-1]
-def mu_old_update(mu, m_k, mu_prev, mu_next, data_count):
-    if (mu< mu_prev) & (mu>mu_next):
-        return mu**(m_k-1)*(1-mu)**(data_count-m_k)
-    else:
-        return 0
-    
-#MH algorithm
-#for equation 25
-#pass m[k-1]
-def mh_new_mu(mu_prev, alpha, N, sigma_g, T=100):
-    mu = npr.uniform(0,mu_prev,1)[0]
-    t=0
-    sigma_g = max(sigma_g,0.001)
-    while t<T:
-        #print t
-        mu_new = npr.normal(mu, sigma_g, 1)[0]
-        if (mu_new>0) & (mu_new<mu_prev):
-            A = min(1, mu_new_update(mu_new, mu_prev, alpha, N)/mu_new_update(mu, mu_prev, alpha, N))
-            accept = npr.binomial(1, A, 1)
-        else:
-            accept = 0
-        if accept==1:
-            mu = mu_new
-            t+=1
-    return mu
-
-#for equation 28
-#pass m[k] , mu[k-1], mu[k+1]
-def mh_old_mu(m_k, mu_prev, mu_next, data_count, sigma_g, T=100):
-    mu = npr.uniform(mu_next,mu_prev,1)[0]
-    t=0
-    sigma_g = max(sigma_g,0.001)
-
-    while t<T:
-        mu_new = npr.normal(mu, sigma_g, 1)[0]
-        if (mu_new>mu_next) & (mu_new<mu_prev):
-            A = min(1, mu_old_update(mu_new, m_k, mu_prev, mu_next, data_count)/mu_old_update(mu, m_k, mu_prev, mu_next, data_count))
-            accept = npr.binomial(1, A, 1)
-        else:
-            accept = 0
-        if accept==1:
-            mu = mu_new
-            t+=1
-    return mu
-    
-def generate_mu(alpha,number):
-    mu = list()
-    for i in range(number):
-        if i >= 1:
-            mu.append(SPST.beta.rvs(alpha,1)*mu[i-1])
-        else:
-            mu.append(SPST.beta.rvs(alpha,1))
-    return mu
- 
-    
+   
 def log_data_zw(Y,Z,W,sig):
     delta = Y - np.dot(Z,W)
-    delta_sum = np.trace(np.dot(delta.T,delta))
+    if len(Y.shape) == 1:
+        delta_sum = np.dot(delta,delta)   
+    else:
+        delta_sum = np.trace(np.dot(delta.T,delta))
     ll =  -1./(2*sig**2) * delta_sum
     return ll
+    
+#def Z_posterior(z_row, Z):
+#    N,K = Z.shape
+#    Z_post = 1
+#    z_prob = 1./(N+1) * np.sum(Z,axis=0)
+#    #print(z_prob)
+#    for i in range(K):
+#        if z_row[i] == 1:
+#            Z_post = Z_post + math.log(z_prob[i])
+#        else:
+#            Z_post = Z_post + math.log(1 - z_prob[i])
+#    return Z_post
+    
+def Z_posterior(z_row, Z):
+    N,K = Z.shape
+    Z_post = 1
+    z_prob = 1./(N+1) * np.sum(Z,axis=0)
+    for i in range(K):
+        if z_row[i] == 1:
+            if z_prob[i] == 0:
+                Z_post = float('-Inf')
+            else:
+                Z_post = Z_post + math.log(z_prob[i])
+        else:
+            if 1 - z_prob[i] == 0:
+                Z_post = float('-Inf')
+            else:
+                Z_post = Z_post + math.log(1 - z_prob[i])
+    return Z_post
+    
+def pred_ll_IBP(held,Z,W,sig):
+    #should you be comparing the predictive log likelihood?  I think you should
+    R,T = held.shape
+    N,K = Z.shape
+    log_pred = 0
+    for i in range(R):
+        pred_row = 0
+        for j in range(2**K):
+            binary = map(int,"{0:b}".format(j))
+            pad_binary = [0]*(K-len(binary)) + binary
+            log_z_post = Z_posterior(pad_binary,Z)
+            total_z = np.array(pad_binary)
+            pred_row = pred_row + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+        log_pred = log_pred + np.log(pred_row)
+    return log_pred
 
+def truncate(Z,A,select):
+    N,K = Z.shape
+    z_sum = np.sum(Z,axis=0)
+    index_sum = [(z_sum[i],i) for i in range(K)]
+    index_sum.sort(key=lambda tup: tup[1])
+    indices = [index_sum[i][1] for i in range(min(select,K))]
+    Z_trunc = Z[:,indices]
+    A_trunc = A[indices,:]
+    return (Z_trunc, A_trunc)
+
+def print_posterior(Z,W):
+    N,K = Z.shape
+    for j in range(2**K):
+        binary = map(int,"{0:b}".format(j))
+        pad_binary = [0]*(K-len(binary)) + binary
+        prob = np.exp(Z_posterior(pad_binary,Z))
+        if prob > 0.01:
+            pad_binary = np.array(pad_binary)
+            reconstruct = np.dot(pad_binary,W)
+            print("pad binary, reconstruct, probability")
+            print(pad_binary)
+            print(prob)
+            display_W(reconstruct)
+    
 # The uncollapsed LG model. In a more real setting, one would want to
 # additionally sample/optimize the hyper-parameters!  
-def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
+def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count):
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
@@ -219,8 +185,9 @@ def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
     #Z = np.transpose(np.matrix(SPST.bernoulli.rvs(0.25,size=data_count)))
     
     #Z = Z_gen
-    Z = np.random.binomial(1,0.5,[N,1])
-    active_K = 1      
+    Z = np.random.binomial(1,0.25,[N,1])
+    active_K = 1  
+    pred_ll = []    
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
         print(mcmc_iter)
@@ -239,8 +206,8 @@ def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
                 Z_zero = np.copy(Z)
                 Z_one[n,k] = 1
                 Z_zero[n,k] = 0
-                like_one = ullikelihood(data_set,Z_one,A)
-                like_zero = ullikelihood(data_set,Z_zero,A)
+                like_one = ullikelihood(data_set,Z_one,A,sigma_n)
+                like_zero = ullikelihood(data_set,Z_zero,A,sigma_n)
                 shift = max([like_one,like_zero])
                 like_one = like_one - shift
                 like_zero = like_zero - shift
@@ -261,8 +228,8 @@ def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
                     Z_new[n,:] = np.ones(k_new)
                     X_ll.append(data_ll_new(data_set,Z,A,k_new,Z_new,sigma_a,sigma_n))
                 else:  
-                    #X_ll.append(ullikelihood(data_set,Z,A))
-                    X_ll.append(0)
+                    X_ll.append(ullikelihood(data_set,Z,A,sigma_n))
+                    #X_ll.append(0)
             shift = max(X_ll)
             pk_new = [SPST.poisson.pmf(i,float(alpha)/N)*np.exp(X_ll[i]-shift) for i in range(K_max)]
             normalise = sum(pk_new)
@@ -277,12 +244,13 @@ def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
                 #sample A_new
                 A = np.vstack((A,A_new(X,Z_new,Z,A,sigma_a,sigma_n))) 
                 Z = np.hstack((Z,Z_new))
-            active_K = Z.shape[1]               
+            active_K = Z.shape[1]
+        print('active_K')
+        print(active_K)               
         # Remove any unused
         # remove corresponding rows in A
         Z_sum = np.array(Z.sum(axis=0))
         nonzero = list()
-        print(Z_sum.shape)
         for j in range(Z_sum.shape[0]):
             if Z_sum[j] != 0:
                 nonzero.append(j)
@@ -294,8 +262,16 @@ def ugibbs_sampler(data_set,alpha,sigma_n,sigma_a,iter_count,Z_gen):
         # Compute likelihood and prior 
         #ll_set[ mcmc_iter ] = ullikelihood( data_set , Z , A , sigma_n ) 
         ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
+        print(Z.shape)
+        if mcmc_iter == 99:
+            select = 13
+            Z_trunc,A_trunc = truncate(Z,A,select)
+            print(Z_trunc.shape)
+            pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
+            pred_ll.append(pred_prob)
+            print(pred_prob)
     # return 
-    return Z,A,ll_set
+    return Z,A,ll_set,pred_ll
 
     
 def plot(title,x_axis,y_axis,data_x,data_y):
@@ -306,15 +282,20 @@ def plot(title,x_axis,y_axis,data_x,data_y):
     plt.show()
 
 if __name__ == "__main__":
-    F = 4 #features
+    iterate = 100
+    alpha = 2.0
+    feature_count = 4 #features
     T = 36 #length of datapoint
-    N = 100 #data size
+    data_count = 100
+    held_out = 32
     sig = 0.1 #noise
-    sig_w = 0.7 #feature deviation
-    Y,Z_gen = generate_data(F,N,T,sig)
-    iterate = 10
-    alpha = 1.0
-    Z,W,ll_set = ugibbs_sampler(Y,alpha,sig,sig_w,iterate,Z_gen)
+    sig_w = 0.5 #feature deviation
+    data_type = 'random'
+    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    Y = full_data[:data_count,:]
+    held_out = full_data[data_count:,:]
+    
+    Z,W,ll_set,pred_ll = ugibbs_sampler(Y,held_out,alpha,sig,sig_w,iterate)
     
     approx = np.dot(Z,W)
     for i in range(10):
@@ -325,7 +306,12 @@ if __name__ == "__main__":
         print(Z[i,:])
         display_W(approx[i:i+1,:])
         print("data: " + str(i))
-        display_W(data_set[i:i+1,:])
+        display_W(Y[i:i+1,:])
+    
+    #Output the posterior 
+    select = 13
+    Z_trunc,W_trunc = truncate(Z,W,select)
+    print_posterior(Z_trunc,W_trunc)
 #    display_W(W)
 #    Z_final = Z_set[iterate-1]
 #    plotRowHistogram(Z_final)
