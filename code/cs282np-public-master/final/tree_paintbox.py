@@ -13,6 +13,7 @@ import scipy.stats as SPST
 import pdb 
 from fractions import gcd
 import matplotlib.pyplot as plt
+import sys
 
 #generate random tree with depth F
 def gen_tree(F,res):
@@ -90,11 +91,18 @@ def conditional_draw(tree,row,ext,tot):
     try:
         chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0]) + z_index
     except TypeError:
+        print('vec')
+        print(vec)
+        print('roulette')
+        print(roulette)
+        print('z_index')
+        print(z_index)
         roulette = vec
         normal_roulette = [float(r)/np.sum(roulette) for r in roulette]
         chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
         print("TypeError") 
         print("Conditional Error")
+        sys.exit()
     binary = list(map(int,"{0:b}".format(chosen)))
     pad_binary = np.concatenate((np.zeros(tot - len(binary)),binary))
     return pad_binary

@@ -286,8 +286,8 @@ if __name__ == "__main__":
     alpha = 2.0
     feature_count = 4 #features
     T = 36 #length of datapoint
-    data_count = 100
-    held_out = 32
+    data_count = 500
+    held_out = 50
     sig = 0.1 #noise
     sig_w = 0.5 #feature deviation
     data_type = 'random'

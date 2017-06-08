@@ -20,6 +20,7 @@ from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree,co
 import time
 from varIBP import run_vi
 from IBP import ugibbs_sampler
+import sys
 
 #vector representation of paintbox
 def vectorize(pb):
@@ -69,14 +70,17 @@ def log_w_sig(W,sig):
 def Z_vec(Z,vec):
     N,F = Z.shape
     zp = 1.0
+    broken = False
     for i in range(N):
         index = 0
         for j in range(F):
             index = int(index + Z[i,j]*(2**(F-j-1)))
         if vec[index] == 0:
-            print("Z given Vector Invariant Break")
+            broken = True
+            #print("Z given Vector Invariant Break")
+            #sys.exit()
         zp = zp+np.log(float(vec[index])) 
-    return zp
+    return (zp,broken)
     
 def debug(Z,vec,D):
     N,F = Z.shape
@@ -203,9 +207,19 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
                 #    print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
                 prob_matrix[i,j] = p_one
+#            prob,broken = Z_vec(Z,vec)
+#            if broken:
+#                print("invalid Z update")
+#                print("row")
+#                print(Z[i,:])
+#                print('i,j')
+#                print((i,j))
+#                print('vec')
+#                print(vec)
             #var = Z_vec(Z,vec)
             #if math.isinf(Z_vec(Z,vec)):
             #    print("TOTALLY ILLEGAL") 
+        #There is an indent here
         K = Z.shape[1]
     return (Z,prob_matrix)
 
@@ -225,12 +239,19 @@ def excise1(Z,vec,start,mark):
             zp = zp+np.log(float(vec[index])) 
     return zp
 
+#computes log probability of the rows starting
+#from start zero and ending with end one given
+#probabilities in vec
+#we should never return 0 because excise2 is
+#only called when there is a meaningful paintbox
+#update
+#returns -1 when vec is invalid
 def excise2(compact,vec,start_zero,end_one):
-    zp = 0
+    zp = 0        
     for i in range(start_zero,end_one+1):
         if compact[i] != 0:
             if vec[i] == 0:
-                zp = 0
+                zp = -1
                 break
             else:
                 zp = zp + compact[i]*np.log(float(vec[i]))
@@ -274,7 +295,7 @@ def sample_pb(Z,tree,res):
                 #start = np.concatenate((np.zeros(F-len(binary)), binary))
                 old_prob = float(np.sum(vec[start_one:end_one+1]))/tot 
                 unit = float(np.sum(vec[start_zero:end_one+1]))/res
-                roulette = []
+                log_roulette = []
                 center = int(round(res*old_prob))
                 if center == res:
                     lbound = res - 1
@@ -288,6 +309,7 @@ def sample_pb(Z,tree,res):
                 #lbound = 0
                 #ubound = res
                 mat_vec = np.tile(vec,(ubound-lbound+1,1))
+                wheel = [w for w in range(ubound-lbound+1)]
                 for k in range(lbound,ubound+1):
                     mat_pos = k - lbound
                     new_prob = float(k)/res
@@ -309,22 +331,55 @@ def sample_pb(Z,tree,res):
                     #val = excise(Z,mat_vec[mat_pos,:],start,i)
                     val = excise2(compact,mat_vec[mat_pos,:],start_zero,end_one)
                     #val = Z_vec(Z,mat_vec[k,:])
-                    if math.isinf(val) or math.isnan(val) or val == 0:
-                        roulette.append(0.0)
+                    if math.isinf(val) or math.isnan(val) or val == -1:
+#                        print("edge case")
+#                        print(val)
+#                        print("wheel and mat_pos")
+#                        print(wheel)
+#                        print(mat_pos)
+                        wheel.remove(mat_pos)
                     else:
-                        roulette.append(np.exp(val))
-                if np.sum(roulette) == 0:
-                    roulette = 1./(ubound - lbound + 1) * np.ones(ubound - lbound + 1)
+#                        print("normal")
+#                        print(val)
+#                        print(compact[start_zero:end_one+1])
+#                        print(mat_vec[mat_pos,:])
+                        log_roulette.append(val)
+                if len(log_roulette) == 0:
+                    print("paintbox update broken")
+                    sys.exit()
+                #if np.sum(roulette) == 0:
+                #    roulette = 1./(ubound - lbound + 1) * np.ones(ubound - lbound + 1)
+                shift = max(log_roulette)
+                roulette = [np.exp(lr - shift) for lr in log_roulette] 
                 normal_roulette = [r/np.sum(roulette) for r in roulette]
                 #Hacked Solution Beware
                 try:
-                    chosen = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+                    bucket = int(np.where(np.random.multinomial(1,normal_roulette) == 1)[0])
+                    chosen = wheel[bucket]
                 except TypeError:
-                    #BEWARE YOU ARE SETTING A PARAMETER
+                    #BEWARE, THIS CHANGES IF YOU ADJUST THE EXPONENT OF RES
                     chosen = 1
                     print("INVARIANT BROKEN")
                 vec = mat_vec[chosen,:]
-                ctree[i,j] = float(chosen+lbound)/res
+#                print("chosen")
+#                print(chosen)
+#                print((i,j))
+#                print(ctree.shape)
+            ctree[i,j] = 0
+            ctree[i,j] = float(chosen+lbound)/res
+#            prob,broken = Z_vec(Z,vec)
+#            if broken:
+#                print("invalid paintbox update")
+#                print("normal roulette")
+#                print(normal_roulette)
+#                print("chosen")
+#                print(chosen)
+#                print("Z")
+#                print(Z)
+#                print("vec")
+#                print(vec)
+    #print("paintbox update")
+    #Z_vec(Z,vec)
     end_pb = time.time()
     lapse = end_pb-start_pb
     tree = update((ctree,ptree))
@@ -375,6 +430,9 @@ def drop_feature(Z,W,tree):
 
 def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop):
     ctree,ptree = tree
+    
+    #debugging invariant
+    vec = get_vec(tree)
     Z,W,tree = drop_feature(Z,W,tree)
     F,D = get_FD(tree)
     if F >= 10 or drop:
@@ -503,19 +561,19 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
     #res = 128 #all conditionals will be multiples of 1/res 
-    log_res = 7 #log of res
-    hold = 300 #hold resolution for # iterations
+    log_res = 5 #log of res
+    hold = 200 #hold resolution for # iterations
     feature_count = 4 #features
     T = 36 #length of datapoint
-    data_count = 100
-    held_out = 32
+    data_count = 500
+    held_out = 50
     sig = 0.1 #noise
     sig_w = 0.5 #feature deviation
-    data_type = 'corr'
+    data_type = 'random'
     full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    iterate = 2100
+    iterate = 1000
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
