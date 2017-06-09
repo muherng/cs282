@@ -59,7 +59,7 @@ def generate_blocks(small_x,small_y,big_x,big_y):
         fill = density[choice]
         new_feature = np.random.permutation(np.array([1]*fill + [0]*(block-fill)))
         W[i,block*i:block*(i+1)] = new_feature
-    display_W(W)
+    display_W(W,small_x,small_y,big_x,big_y,'nine')
     return W
 
 def scale(pb):
@@ -168,26 +168,58 @@ def draw_Z_tree(tree,N):
     #np.random.shuffle(Z)
     return Z
     
-
+def super_format(W,small_x,small_y,big_x,big_y):
+    image_format = np.zeros([small_y*big_y,small_x*big_x])
+    w_dim = 0
+    for i in range(big_y):
+        for j in range(big_x):
+            for k in range(small_y):
+                for l in range(small_x):
+                    x_dim = l + j*small_x
+                    y_dim = k + i*small_y
+                    #w_dim = l + k*small_x + j*small_x*small_y + i*small_x*small_y*big_x
+                    image_format[y_dim,x_dim] = W[w_dim]
+                    w_dim = w_dim + 1
+    return image_format
 #this is for toy image W    
-def display_W(W):
-    if len(W.shape) == 1:
-        T, = W.shape
-        dim = int(np.sqrt(T))
-        image_format = np.reshape(W,(dim,dim))
-        plt.imshow(image_format,interpolation='nearest')
-        plt.gray()
-        plt.show()
-    else:
-        F,T = W.shape
-        image_format = []
-        for i in range(F):
+#x goes across
+#y goes down
+#we fill across and then down
+def display_W(W,small_x = 3,small_y = 3,big_x = 3,big_y = 3,flag = 'four'):
+    if flag == 'four':
+        if len(W.shape) == 1:
+            T, = W.shape
             dim = int(np.sqrt(T))
-            image_format.append(np.reshape(W[i,:],(dim,dim)))
-            plt.imshow(image_format[i],interpolation='nearest')
+            image_format = np.reshape(W,(dim,dim))
+            plt.imshow(image_format,interpolation='nearest')
             plt.gray()
             plt.show()
-    return 
+        else:
+            F,T = W.shape
+            image_format = []
+            for i in range(F):
+                dim = int(np.sqrt(T))
+                image_format.append(np.reshape(W[i,:],(dim,dim)))
+                plt.imshow(image_format[i],interpolation='nearest')
+                plt.gray()
+                plt.show()
+    else:
+        if len(W.shape) == 1:
+            T, = W.shape
+            image_format = super_format(W,small_x,small_y,big_x,big_y)
+            plt.imshow(image_format,interpolation='nearest')
+            plt.gray()
+            plt.show()
+        else:
+            F,T = W.shape
+            image_set = []
+            for im in range(F):
+                image_format = super_format(W[im,:],small_x,small_y,big_x,big_y)
+                image_set.append(image_format)
+                plt.imshow(image_set[im],interpolation='nearest')
+                plt.gray()
+                plt.show()     
+    return 0 
  
 
 def log_data_zw(Y,Z,W,sig):
@@ -203,20 +235,15 @@ def log_data_zw(Y,Z,W,sig):
         delta_sum = np.trace(np.dot(delta.T,delta))
     #print(NK)
     ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
-    return ll       
+    return ll 
 
-def generate_data(F,N,T,sig,data_type):
-    #pb = pb_partition(D,F)
-    #pb = pb_random(res,D,F)
-    #print("PAINTBOX GENERATING")
-    #print(pb)
-    #This line is problematic, does not adapt to T
-    #W = np.hstack((np.eye(F),np.eye(F)))
-    W = generate_gg_blocks()
+
+def construct_data(small_x,small_y,big_x,big_y,N,sig,data_type,corr_value=2):
+    W = generate_blocks(small_x,small_y,big_x,big_y)
+    F = big_x*big_y
+    T = small_x*small_y*big_x*big_y
     Y = np.zeros((N,T))
     E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
-    
-    #Z = draw_Z(pb,D,F,N,T)
     Z = np.zeros([N,F])
     if data_type == 'random':
         Z = np.random.binomial( 1 , .25 , [ N , F ] )
@@ -226,26 +253,41 @@ def generate_data(F,N,T,sig,data_type):
         for i in range(N):
             index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
             Z[i,:] = indices[index,:]
-    if data_type == 'corr':
-        
+    if data_type == 'corr': 
+        base = [1]*corr_value + [0]*(F-corr_value)
+        indices = np.array(list(itertools.permutations([j for j in range(F)],F)))
+        roulette = [1./len(indices) for i in range(len(indices))]
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = [base[indices[index,k]] for k in range(F)]        
+    Z = np.random.permutation(Z)
+    Y = np.dot(Z,W) + E
+    return (Y,Z)  
+
+      
+
+def generate_data(F,N,T,sig,data_type):
+    W = generate_gg_blocks()
+    Y = np.zeros((N,T))
+    E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
+    Z = np.zeros([N,F])
+    if data_type == 'random':
+        Z = np.random.binomial( 1 , .25 , [ N , F ] )
+    if data_type == 'anti':
+        roulette = [1./F for i in range(F)]
+        indices = np.eye(F)
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = indices[index,:]
+    if data_type == 'corr':        
         roulette = [1./6 for i in range(6)]
         indices = np.array([[0,0,1,1],[0,1,0,1],[1,0,0,1],[0,1,1,0],[1,0,1,0],[1,1,0,0]])
         for i in range(N):
             index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
             Z[i,:] = indices[index,:]        
     Z = np.random.permutation(Z)
-    
-    #for i in range(N):
-    #    Z[i,:] = 
-    
-    #for debugging the uncollapsed IBP we're going to fix the Z
-    #Z = np.zeros([N,F])
-    #Z[:,0] = np.random.binomial(1,0.5,N)
-    
-    
-    #consider ignoring the noise
-    #Y = np.dot(Z,W) + E
-    #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
-    return (Y,Z)    
+    return (Y,Z)  
+
+  
 

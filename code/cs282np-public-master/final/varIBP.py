@@ -5,7 +5,7 @@ import numpy.random as npr
 import scipy.special as sps
 import scipy.stats as SPST
 import pdb 
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw,construct_data 
 import math
 
 # Compute the elbo 
@@ -178,8 +178,6 @@ def pred_ll_IBP(held,Z,W,sig):
 #            print(log_z_post)
             #term = np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
             term = np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
-            if term != 0:
-                print(log_data_zw(held[i,:],total_z,W,sig))
             pred_row = pred_row + term
         log_pred = log_pred + np.log(pred_row)
     return log_pred
@@ -230,22 +228,27 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
 
     
 if __name__ == "__main__":
-    iterate = 1000
+    iterate = 100
     alpha = 2
     data_count = 500
     held_out = 50
     sig = 0.1
     sig_w = 0.5
-    feature_count = 4
-    T = 36
+    small_x = 3
+    small_y = 3
+    big_x = 3
+    big_y = 3
+    feature_count = big_x*big_y
+    T = small_x*small_y*big_x*big_y
     data_type = 'random'
-    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    full_data,Z_gen = construct_data(small_x,small_y,big_x,big_y,data_count + held_out,sig,data_type,corr_value=2)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
     sig_alg = 0.1
     nu_set,phi_set,Phi_set,tau_set,pred_ll = run_vi(Y,held_out,alpha,sig_w,sig_alg,iterate,feature_count)
     W = phi_set[iterate-1]
-    display_W(W)
+    display_W(W,small_x,small_y,big_x,big_y,'nine')
     print(pred_ll)
     #A = phi_set[34]
 #    print(elbo_set)

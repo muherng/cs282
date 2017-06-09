@@ -11,7 +11,7 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb
 import matplotlib.pyplot as plt
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw,construct_data 
 import profile
 from fractions import gcd
 from scipy.stats import norm
@@ -564,16 +564,29 @@ if __name__ == "__main__":
     log_res = 10 #log of res
     hold = 500 #hold resolution for # iterations
     feature_count = 4 #features
-    T = 36 #length of datapoint
+    #T = 36 #length of datapoint
     data_count = 500
     held_out = 50
     sig = 0.1 #noise
-    sig_w = 0.5 #feature deviation
+    sig_w = 0.3 #feature deviation
+    #data_type = 'random'
+    #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    #Y = full_data[:data_count,:]
+    #held_out = full_data[data_count:,:]
+    iterate = 5000
+    small_x = 3
+    small_y = 3
+    big_x = 3
+    big_y = 3
+    feature_count = big_x*big_y
+    T = small_x*small_y*big_x*big_y
     data_type = 'random'
-    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    full_data,Z_gen = construct_data(small_x,small_y,big_x,big_y,data_count + held_out,sig,data_type,corr_value=2)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    iterate = 5000
+    
+    
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
@@ -670,7 +683,7 @@ if __name__ == "__main__":
     
     #printing paintbox (only makes sense for single run)
     print_paintbox(tree,W)    
-        
+    #display_W(W,small_x,small_y,big_x,big_y,'nine')    
         
         
 #    pb_scale = scale(pb)

@@ -11,7 +11,7 @@ import pdb
 from numpy.linalg import det
 import math
 import matplotlib.pyplot as plt
-from generate_data import generate_data,display_W,log_data_zw
+from generate_data import generate_data,display_W,log_data_zw,construct_data
 #from make_toy_data import generate_random_A
 
 #you need a fair uncollapsed comparison.  
@@ -273,16 +273,25 @@ def plot(title,x_axis,y_axis,data_x,data_y):
     plt.show()
 
 if __name__ == "__main__":
-    iterate = 500
+    iterate = 100
     alpha = 2.0
-    feature_count = 4 #features
-    T = 36 #length of datapoint
+    #feature_count = 4 #features
+    #T = 36 #length of datapoint
     data_count = 300
     held_out = 50
     sig = 0.1 #noise
-    sig_w = 0.5 #feature deviation
-    data_type = 'corr'
-    full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    sig_w = 0.2 #feature deviation
+    small_x = 3
+    small_y = 3
+    big_x = 3
+    big_y = 3
+    feature_count = big_x*big_y
+    T = small_x*small_y*big_x*big_y
+    data_type = 'anti'
+    #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
+    full_data,Z_gen = construct_data(small_x,small_y,big_x,big_y,data_count + held_out,sig,data_type,corr_value=2)
+    
+    
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
     sig_alg = 0.1
@@ -297,7 +306,7 @@ if __name__ == "__main__":
         print(Z[i,:])
         display_W(approx[i:i+1,:])
         print("data: " + str(i))
-        display_W(Y[i:i+1,:])
+        display_W(Y[i:i+1,:],small_x,small_y,big_x,big_y)
     
     #Output the posterior 
     select = 10
