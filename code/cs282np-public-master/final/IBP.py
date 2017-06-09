@@ -11,7 +11,7 @@ import pdb
 from numpy.linalg import det
 import math
 import matplotlib.pyplot as plt
-from generate_data import generate_data,display_W
+from generate_data import generate_data,display_W,log_data_zw
 #from make_toy_data import generate_random_A
 
 #you need a fair uncollapsed comparison.  
@@ -90,15 +90,6 @@ def resample_A( data_set , Z , sigma_a , sigma_n ):
             print('ValueError')
         
     return A
-   
-def log_data_zw(Y,Z,W,sig):
-    delta = Y - np.dot(Z,W)
-    if len(Y.shape) == 1:
-        delta_sum = np.dot(delta,delta)   
-    else:
-        delta_sum = np.trace(np.dot(delta.T,delta))
-    ll =  -1./(2*sig**2) * delta_sum
-    return ll
     
 #def Z_posterior(z_row, Z):
 #    N,K = Z.shape
@@ -137,7 +128,7 @@ def pred_ll_IBP(held,Z,W,sig):
     for i in range(R):
         pred_row = 0
         for j in range(2**K):
-            binary = map(int,"{0:b}".format(j))
+            binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
             log_z_post = Z_posterior(pad_binary,Z)
             total_z = np.array(pad_binary)
@@ -158,7 +149,7 @@ def truncate(Z,A,select):
 def print_posterior(Z,W):
     N,K = Z.shape
     for j in range(2**K):
-        binary = map(int,"{0:b}".format(j))
+        binary = list(map(int,"{0:b}".format(j)))
         pad_binary = [0]*(K-len(binary)) + binary
         prob = np.exp(Z_posterior(pad_binary,Z))
         if prob > 0.01:
@@ -263,8 +254,8 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count):
         #ll_set[ mcmc_iter ] = ullikelihood( data_set , Z , A , sigma_n ) 
         ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
         print(Z.shape)
-        if mcmc_iter == 99:
-            select = 13
+        if mcmc_iter%10 == 0 and mcmc_iter > 0:
+            select = 10
             Z_trunc,A_trunc = truncate(Z,A,select)
             print(Z_trunc.shape)
             pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
@@ -282,20 +273,20 @@ def plot(title,x_axis,y_axis,data_x,data_y):
     plt.show()
 
 if __name__ == "__main__":
-    iterate = 100
+    iterate = 500
     alpha = 2.0
     feature_count = 4 #features
     T = 36 #length of datapoint
-    data_count = 500
+    data_count = 300
     held_out = 50
     sig = 0.1 #noise
     sig_w = 0.5 #feature deviation
-    data_type = 'random'
+    data_type = 'corr'
     full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    
-    Z,W,ll_set,pred_ll = ugibbs_sampler(Y,held_out,alpha,sig,sig_w,iterate)
+    sig_alg = 0.1
+    Z,W,ll_set,pred_ll = ugibbs_sampler(Y,held_out,alpha,sig_alg,sig_w,iterate)
     
     approx = np.dot(Z,W)
     for i in range(10):
@@ -309,7 +300,7 @@ if __name__ == "__main__":
         display_W(Y[i:i+1,:])
     
     #Output the posterior 
-    select = 13
+    select = 10
     Z_trunc,W_trunc = truncate(Z,W,select)
     print_posterior(Z_trunc,W_trunc)
 #    display_W(W)

@@ -5,7 +5,8 @@ import numpy.random as npr
 import scipy.special as sps
 import scipy.stats as SPST
 import pdb 
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw 
+import math
 
 # Compute the elbo 
 def compute_elbo( data_set , alpha , sigma_a , sigma_n , phi , Phi , nu , tau ):
@@ -120,14 +121,14 @@ def marginal_likelihood(approx,alpha,D,K,N,nu,phi_mean,phi_cov,tau,sigma_a,sigma
     term6 = sub1 + sub2
     return term1 + term2 + term3 + term4 + term5 + term6
     
-def log_data_zw(Y,Z,W,sig):
-    delta = Y - np.dot(Z,W)
-    if len(Y.shape) == 1:
-        delta_sum = np.dot(delta,delta)   
-    else:
-        delta_sum = np.trace(np.dot(delta.T,delta))
-    ll =  -1./(2*sig**2) * delta_sum
-    return ll
+#def log_data_zw(Y,Z,W,sig):
+#    delta = Y - np.dot(Z,W)
+#    if len(Y.shape) == 1:
+#        delta_sum = np.dot(delta,delta)   
+#    else:
+#        delta_sum = np.trace(np.dot(delta.T,delta))
+#    ll =  -1./(2*sig**2) * delta_sum
+#    return ll
 
 def nu_to_z(nu):
     #print("This is nu")
@@ -167,11 +168,19 @@ def pred_ll_IBP(held,Z,W,sig):
     for i in range(R):
         pred_row = 0
         for j in range(2**K):
-            binary = map(int,"{0:b}".format(j))
+            binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
             log_z_post = Z_posterior(pad_binary,Z)
             total_z = np.array(pad_binary)
-            pred_row = pred_row + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+#            print("cluster conditional")
+#            print(log_data_zw(held[i,:],total_z,W,sig))
+#            print("cluster weight")
+#            print(log_z_post)
+            #term = np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+            term = np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+            if term != 0:
+                print(log_data_zw(held[i,:],total_z,W,sig))
+            pred_row = pred_row + term
         log_pred = log_pred + np.log(pred_row)
     return log_pred
     
@@ -214,25 +223,27 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
         Phi_set.append( phi_cov ) 
         tau_set.append( tau )
         Z = nu_to_z(nu)
-        if vi_iter == iter_count - 1:
+        if vi_iter%20 == 0 and vi_iter > 0:
             pred_ll.append(pred_ll_IBP(held_out, Z, phi_mean,sigma_n))
+            print(pred_ll)
     return nu_set , phi_set , Phi_set , tau_set, pred_ll    
 
     
 if __name__ == "__main__":
-    iterate = 100
+    iterate = 1000
     alpha = 2
-    data_count = 100
-    held_out = 32
+    data_count = 500
+    held_out = 50
     sig = 0.1
     sig_w = 0.5
     feature_count = 4
     T = 36
-    data_type = 'anti'
+    data_type = 'random'
     full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    nu_set,phi_set,Phi_set,tau_set,pred_ll = run_vi(Y,held_out,alpha,sig_w,sig,iterate,feature_count)
+    sig_alg = 0.1
+    nu_set,phi_set,Phi_set,tau_set,pred_ll = run_vi(Y,held_out,alpha,sig_w,sig_alg,iterate,feature_count)
     W = phi_set[iterate-1]
     display_W(W)
     print(pred_ll)

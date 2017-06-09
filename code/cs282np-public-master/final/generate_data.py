@@ -14,6 +14,7 @@ import pdb
 from fractions import gcd
 import matplotlib.pyplot as plt
 from tree_paintbox import gen_tree,update,add,get_vec,get_FD
+import math
 
 #size of paintbox
 res = 2
@@ -45,6 +46,21 @@ def generate_gg_blocks():
     W[3, [ 21 , 22 , 23 , 28 , 34 ] ] = 1 
     #W = W - 0.5*np.ones([4,36])
     return W 
+
+def generate_blocks(small_x,small_y,big_x,big_y):
+    features = big_x*big_y
+    block = small_x*small_y
+    signal_length = features*block
+    W = np.zeros([features,signal_length])
+    density = [5,6,7,8]
+    roulette = [1./len(density) for r in range(len(density))]
+    for i in range(features):
+        choice = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+        fill = density[choice]
+        new_feature = np.random.permutation(np.array([1]*fill + [0]*(block-fill)))
+        W[i,block*i:block*(i+1)] = new_feature
+    display_W(W)
+    return W
 
 def scale(pb):
     F,D = pb.shape
@@ -172,7 +188,22 @@ def display_W(W):
             plt.gray()
             plt.show()
     return 
-        
+ 
+
+def log_data_zw(Y,Z,W,sig):
+    NK = 1
+    if len(Y.shape) == 1:
+        NK = Y.shape[0]
+    else:
+        NK = Y.shape[0]*Y.shape[1]
+    delta = Y - np.dot(Z,W)
+    if len(Y.shape) == 1:
+        delta_sum = np.dot(delta,delta)   
+    else:
+        delta_sum = np.trace(np.dot(delta.T,delta))
+    #print(NK)
+    ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
+    return ll       
 
 def generate_data(F,N,T,sig,data_type):
     #pb = pb_partition(D,F)
@@ -190,15 +221,18 @@ def generate_data(F,N,T,sig,data_type):
     if data_type == 'random':
         Z = np.random.binomial( 1 , .25 , [ N , F ] )
     if data_type == 'anti':
-        chunk = N/F
+        roulette = [1./F for i in range(F)]
         indices = np.eye(F)
-        for i in range(F):
-            Z[i*chunk:(i+1)*chunk] = np.tile(indices[i,:],(chunk,1))
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = indices[index,:]
     if data_type == 'corr':
-        chunk = N/6
+        
+        roulette = [1./6 for i in range(6)]
         indices = np.array([[0,0,1,1],[0,1,0,1],[1,0,0,1],[0,1,1,0],[1,0,1,0],[1,1,0,0]])
-        for i in range(6):
-            Z[i*chunk:(i+1)*chunk] = np.tile(indices[i,:],(chunk,1))
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = indices[index,:]        
     Z = np.random.permutation(Z)
     
     #for i in range(N):
@@ -214,6 +248,4 @@ def generate_data(F,N,T,sig,data_type):
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) + E
     return (Y,Z)    
-
-
 

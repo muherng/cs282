@@ -11,7 +11,7 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb
 import matplotlib.pyplot as plt
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw 
 import profile
 from fractions import gcd
 from scipy.stats import norm
@@ -104,14 +104,14 @@ def Z_paintbox(z_row,vec):
 #    ll =  -1./(2*sig**2) * delta_sum
 #    return ll
 
-def log_data_zw(Y,Z,W,sig):
-    delta = Y - np.dot(Z,W)
-    if len(Y.shape) == 1:
-        delta_sum = np.dot(delta,delta)   
-    else:
-        delta_sum = np.trace(np.dot(delta.T,delta))
-    ll =  -1./(2*sig**2) * delta_sum
-    return ll
+#def log_data_zw(Y,Z,W,sig):
+#    delta = Y - np.dot(Z,W)
+#    if len(Y.shape) == 1:
+#        delta_sum = np.dot(delta,delta)   
+#    else:
+#        delta_sum = np.trace(np.dot(delta.T,delta))
+#    ll =  -1./(2*sig**2) * delta_sum
+#    return ll
     
 def log_collapsed(Y,Z,sig,sig_w):
     N,D = Y.shape
@@ -435,7 +435,7 @@ def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop):
     vec = get_vec(tree)
     Z,W,tree = drop_feature(Z,W,tree)
     F,D = get_FD(tree)
-    if F >= 10 or drop:
+    if F >= 15 or drop:
         return (Z,W,tree)
     else:
         if F + ext < K:
@@ -457,7 +457,7 @@ def pred_ll_paintbox(held,W,tree,sig):
     for i in range(R):
         pred_row = 0
         for j in range(2**K):
-            binary = map(int,"{0:b}".format(j))
+            binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
             log_z_post = np.log(Z_paintbox(pad_binary,vec))
             total_z = np.array(pad_binary)
@@ -471,7 +471,7 @@ def print_paintbox(tree,W):
     K = int(math.log(D,2))
     print("outputting paintbox")
     for j in range(D):
-        binary = map(int,"{0:b}".format(j))
+        binary = list(map(int,"{0:b}".format(j)))
         pad_binary = [0]*(K-len(binary)) + binary
         prob = Z_paintbox(pad_binary,vec)
         if prob > 0.01:
@@ -561,8 +561,8 @@ def plot(title,x_axis,y_axis,data_x,data_y):
 if __name__ == "__main__":
     #for now res is multiple of 2 because of pb_init (not fundamental problem )
     #res = 128 #all conditionals will be multiples of 1/res 
-    log_res = 5 #log of res
-    hold = 200 #hold resolution for # iterations
+    log_res = 10 #log of res
+    hold = 500 #hold resolution for # iterations
     feature_count = 4 #features
     T = 36 #length of datapoint
     data_count = 500
@@ -573,7 +573,7 @@ if __name__ == "__main__":
     full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     Y = full_data[:data_count,:]
     held_out = full_data[data_count:,:]
-    iterate = 1000
+    iterate = 5000
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
 #    profile.run('ugibbs_sample(log_res,hold,Y,ext,sig,sig_w,iterate,K,valid)') 
@@ -586,12 +586,13 @@ if __name__ == "__main__":
     #pred_data = np.zeros((runs,iterate))
     valid = 0
     algorithm = 'paintbox'
+    sig_alg = 0.1
     #algorithm = 'var'
     #algorithm = 'uncollapsed'
     #you'll come back to this
     while valid < runs:
         if algorithm == 'paintbox':    
-            ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,valid)
+            ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)
         if algorithm == 'uncollapsed':
             Z,W,ll_set = ugibbs_sampler(Y,alpha,sig,sig_w,iterate,Z_gen)
         if algorithm == 'var':
