@@ -15,6 +15,7 @@ from fractions import gcd
 import matplotlib.pyplot as plt
 from tree_paintbox import gen_tree,update,add,get_vec,get_FD
 import math
+import itertools
 
 #size of paintbox
 res = 2

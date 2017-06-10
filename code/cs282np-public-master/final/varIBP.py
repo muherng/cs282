@@ -190,7 +190,7 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
     X = data_set
     N = data_count
     D = dim_count
-    K = 10
+    K = 15
     #elbo_set = np.zeros( [ iter_count ] )
     pred_ll = list() #predictive log likelihood
     nu_set = list()   # nu are the varitional parameters on Z 
@@ -221,19 +221,19 @@ def run_vi(data_set,held_out, alpha , sigma_a, sigma_n, iter_count, feature_coun
         Phi_set.append( phi_cov ) 
         tau_set.append( tau )
         Z = nu_to_z(nu)
-        if vi_iter%20 == 0 and vi_iter > 0:
+        if vi_iter%50 == 0 and vi_iter > 0:
             pred_ll.append(pred_ll_IBP(held_out, Z, phi_mean,sigma_n))
             print(pred_ll)
     return nu_set , phi_set , Phi_set , tau_set, pred_ll    
 
     
 if __name__ == "__main__":
-    iterate = 100
+    iterate = 1000
     alpha = 2
     data_count = 500
     held_out = 50
     sig = 0.1
-    sig_w = 0.5
+    sig_w = 0.3
     small_x = 3
     small_y = 3
     big_x = 3

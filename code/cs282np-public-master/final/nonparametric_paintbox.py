@@ -413,7 +413,7 @@ if __name__ == "__main__":
     #active features
     K = 1
     ext = 1
-#    profile.run('ugibbs_sample(Y,ext,sig,sig_w,iterate,K)') 
+    #profile.run() 
     runs = 10
     ll_data = np.zeros((runs,iterate))
     ll_time = np.zeros((runs,iterate))

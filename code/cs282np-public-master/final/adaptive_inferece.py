@@ -203,22 +203,8 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
                     p_one = 1
                 else:
                     p_one = float(np.exp(yz_one)*zp_one)/(np.exp(yz_one)*zp_one + np.exp(yz_zero)*zp_zero)
-                #if math.isnan(p_one):
-                #    print("P IS NAN")
                 Z[i,j] = np.random.binomial(1,p_one)
                 prob_matrix[i,j] = p_one
-#            prob,broken = Z_vec(Z,vec)
-#            if broken:
-#                print("invalid Z update")
-#                print("row")
-#                print(Z[i,:])
-#                print('i,j')
-#                print((i,j))
-#                print('vec')
-#                print(vec)
-            #var = Z_vec(Z,vec)
-            #if math.isinf(Z_vec(Z,vec)):
-            #    print("TOTALLY ILLEGAL") 
         #There is an indent here
         K = Z.shape[1]
     return (Z,prob_matrix)
@@ -286,7 +272,8 @@ def sample_pb(Z,tree,res):
                 continue
             count = count + 1
             end_zero = j*2**(F-i) + 2**(F-i-1) - 1
-            start_one =  j*2**(F-i) + 2**(F-i-1)
+            #start_one =  j*2**(F-i) + 2**(F-i-1)
+            start_one = end_zero + 1
             tot = np.sum(vec[start_zero:end_one+1])
             if tot == 0:
                 continue
@@ -332,17 +319,8 @@ def sample_pb(Z,tree,res):
                     val = excise2(compact,mat_vec[mat_pos,:],start_zero,end_one)
                     #val = Z_vec(Z,mat_vec[k,:])
                     if math.isinf(val) or math.isnan(val) or val == -1:
-#                        print("edge case")
-#                        print(val)
-#                        print("wheel and mat_pos")
-#                        print(wheel)
-#                        print(mat_pos)
                         wheel.remove(mat_pos)
                     else:
-#                        print("normal")
-#                        print(val)
-#                        print(compact[start_zero:end_one+1])
-#                        print(mat_vec[mat_pos,:])
                         log_roulette.append(val)
                 if len(log_roulette) == 0:
                     print("paintbox update broken")
@@ -465,7 +443,7 @@ def pred_ll_paintbox(held,W,tree,sig):
         log_pred = log_pred + np.log(pred_row)
     return log_pred
 
-def print_paintbox(tree,W):
+def print_paintbox(tree,W,small_x=3,small_y=3,big_x=2,big_y=2,flag='four'):
     vec = get_vec(tree)
     F,D = get_FD(tree)
     K = int(math.log(D,2))
@@ -480,7 +458,7 @@ def print_paintbox(tree,W):
             print("pad binary, reconstruct, probability")
             print(pad_binary)
             print(prob)
-            display_W(reconstruct)
+            display_W(reconstruct,small_x,small_y,big_x,big_y,flag)
     return 0
       
 def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
@@ -537,7 +515,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         F,D = get_FD(tree)
         f_count.append(F)
         #predictive log likelihood
-        if it%100 == 0:
+        if it%1000 == 0:
             pred = pred_ll_paintbox(held_out, W, tree, sig)
             pred_ll.append(pred)
         #handling last iteration edge case
@@ -568,19 +546,20 @@ if __name__ == "__main__":
     data_count = 500
     held_out = 50
     sig = 0.1 #noise
-    sig_w = 0.3 #feature deviation
+    sig_w = 0.3 #feature deviation #it was 0.3 for full operation
     #data_type = 'random'
     #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     #Y = full_data[:data_count,:]
     #held_out = full_data[data_count:,:]
-    iterate = 5000
+    iterate = 1000
     small_x = 3
     small_y = 3
     big_x = 3
     big_y = 3
     feature_count = big_x*big_y
     T = small_x*small_y*big_x*big_y
-    data_type = 'random'
+    data_type = 'corr'
+    flag = 'nine'
     #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     full_data,Z_gen = construct_data(small_x,small_y,big_x,big_y,data_count + held_out,sig,data_type,corr_value=2)
     Y = full_data[:data_count,:]
@@ -604,7 +583,8 @@ if __name__ == "__main__":
     #algorithm = 'uncollapsed'
     #you'll come back to this
     while valid < runs:
-        if algorithm == 'paintbox':    
+        if algorithm == 'paintbox': 
+            #profile.run('upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)')
             ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)
         if algorithm == 'uncollapsed':
             Z,W,ll_set = ugibbs_sampler(Y,alpha,sig,sig_w,iterate,Z_gen)
@@ -677,12 +657,12 @@ if __name__ == "__main__":
         print(prob_matrix[i,:])
         print("features selected")
         print(Z[i,:])
-        display_W(approx[i:i+1,:])
+        display_W(approx[i:i+1,:],small_x,small_y,big_x,big_y,flag)
         print("data: " + str(i))
-        display_W(Y[i:i+1,:])
+        display_W(Y[i:i+1,:],small_x,small_y,big_x,big_y,flag)
     
     #printing paintbox (only makes sense for single run)
-    print_paintbox(tree,W)    
+    print_paintbox(tree,W,small_x,small_y,big_x,big_y,flag)    
     #display_W(W,small_x,small_y,big_x,big_y,'nine')    
         
         
