@@ -317,7 +317,6 @@ def sample_pb(Z,tree,res):
                     #bottleneck line  
                     #val = excise(Z,mat_vec[mat_pos,:],start,i)
                     val = excise2(compact,mat_vec[mat_pos,:],start_zero,end_one)
-                    #val = Z_vec(Z,mat_vec[k,:])
                     if math.isinf(val) or math.isnan(val) or val == -1:
                         wheel.remove(mat_pos)
                     else:
@@ -325,8 +324,6 @@ def sample_pb(Z,tree,res):
                 if len(log_roulette) == 0:
                     print("paintbox update broken")
                     sys.exit()
-                #if np.sum(roulette) == 0:
-                #    roulette = 1./(ubound - lbound + 1) * np.ones(ubound - lbound + 1)
                 shift = max(log_roulette)
                 roulette = [np.exp(lr - shift) for lr in log_roulette] 
                 normal_roulette = [r/np.sum(roulette) for r in roulette]
@@ -339,25 +336,8 @@ def sample_pb(Z,tree,res):
                     chosen = 1
                     print("INVARIANT BROKEN")
                 vec = mat_vec[chosen,:]
-#                print("chosen")
-#                print(chosen)
-#                print((i,j))
-#                print(ctree.shape)
             ctree[i,j] = 0
             ctree[i,j] = float(chosen+lbound)/res
-#            prob,broken = Z_vec(Z,vec)
-#            if broken:
-#                print("invalid paintbox update")
-#                print("normal roulette")
-#                print(normal_roulette)
-#                print("chosen")
-#                print(chosen)
-#                print("Z")
-#                print(Z)
-#                print("vec")
-#                print(vec)
-    #print("paintbox update")
-    #Z_vec(Z,vec)
     end_pb = time.time()
     lapse = end_pb-start_pb
     tree = update((ctree,ptree))
@@ -408,12 +388,11 @@ def drop_feature(Z,W,tree):
 
 def new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop):
     ctree,ptree = tree
-    
     #debugging invariant
     vec = get_vec(tree)
     Z,W,tree = drop_feature(Z,W,tree)
     F,D = get_FD(tree)
-    if F >= 15 or drop:
+    if F >= 12 or drop:
         return (Z,W,tree)
     else:
         if F + ext < K:
@@ -515,9 +494,11 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         F,D = get_FD(tree)
         f_count.append(F)
         #predictive log likelihood
-        if it%1000 == 0:
+        if it%500 == 0:
             pred = pred_ll_paintbox(held_out, W, tree, sig)
             pred_ll.append(pred)
+        if it%1000 == 0 and it > 0:
+            display_W(W,3,3,3,3,'nine')
         #handling last iteration edge case
         drop = 0
         if it == iterate - 1:
@@ -543,15 +524,15 @@ if __name__ == "__main__":
     hold = 500 #hold resolution for # iterations
     feature_count = 4 #features
     #T = 36 #length of datapoint
-    data_count = 500
+    data_count = 200
     held_out = 50
     sig = 0.1 #noise
-    sig_w = 0.3 #feature deviation #it was 0.3 for full operation
+    sig_w = 0.2 #feature deviation #it was 0.3 for full operation
     #data_type = 'random'
     #full_data,Z_gen = generate_data(feature_count,data_count + held_out,T,sig,data_type)
     #Y = full_data[:data_count,:]
     #held_out = full_data[data_count:,:]
-    iterate = 1000
+    iterate = 5000
     small_x = 3
     small_y = 3
     big_x = 3
@@ -578,14 +559,13 @@ if __name__ == "__main__":
     #pred_data = np.zeros((runs,iterate))
     valid = 0
     algorithm = 'paintbox'
-    sig_alg = 0.1
     #algorithm = 'var'
     #algorithm = 'uncollapsed'
     #you'll come back to this
     while valid < runs:
         if algorithm == 'paintbox': 
             #profile.run('upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)')
-            ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)
+            ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,valid)
         if algorithm == 'uncollapsed':
             Z,W,ll_set = ugibbs_sampler(Y,alpha,sig,sig_w,iterate,Z_gen)
         if algorithm == 'var':

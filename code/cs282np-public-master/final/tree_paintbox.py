@@ -116,7 +116,9 @@ def add(tree,ext,res):
     new_ptree = np.zeros((F+ext,2**(F+ext)))
     for i in range(F,F+ext):
         for j in range(2**i):
-            new_ctree[i,j] = float(np.where(np.random.multinomial(1,[1./res]*res) == 1)[0])/res
+            #res/2
+            new_ctree[i,j] = 0.5
+            #new_ctree[i,j] = float(np.where(np.random.multinomial(1,[1./res]*res) == 1)[0])/res
     return update((new_ctree,new_ptree))
     
 def get_vec(tree):

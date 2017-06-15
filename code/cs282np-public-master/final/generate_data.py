@@ -48,7 +48,8 @@ def generate_gg_blocks():
     #W = W - 0.5*np.ones([4,36])
     return W 
 
-def generate_blocks(small_x,small_y,big_x,big_y):
+def generate_blocks(data_dim):
+    small_x,small_y,big_x,big_y = data_dim
     features = big_x*big_y
     block = small_x*small_y
     signal_length = features*block
@@ -60,7 +61,7 @@ def generate_blocks(small_x,small_y,big_x,big_y):
         fill = density[choice]
         new_feature = np.random.permutation(np.array([1]*fill + [0]*(block-fill)))
         W[i,block*i:block*(i+1)] = new_feature
-    display_W(W,small_x,small_y,big_x,big_y,'nine')
+    display_W(W,data_dim,'nine')
     return W
 
 def scale(pb):
@@ -186,7 +187,8 @@ def super_format(W,small_x,small_y,big_x,big_y):
 #x goes across
 #y goes down
 #we fill across and then down
-def display_W(W,small_x = 3,small_y = 3,big_x = 3,big_y = 3,flag = 'four'):
+def display_W(W,data_dim,flag = 'four'):
+    small_x,small_y,big_x,big_y = data_dim
     if flag == 'four':
         if len(W.shape) == 1:
             T, = W.shape
@@ -239,13 +241,14 @@ def log_data_zw(Y,Z,W,sig):
     return ll 
 
 
-def construct_data(small_x,small_y,big_x,big_y,N,sig,data_type,corr_value=2):
-    W = generate_blocks(small_x,small_y,big_x,big_y)
-    F = big_x*big_y
-    T = small_x*small_y*big_x*big_y
-    Y = np.zeros((N,T))
-    E = np.reshape(np.random.normal(0,sig,N*T),(N,T))
-    Z = np.zeros([N,F])
+def construct_data(data_dim,N,sig,data_type,corr_value=2):
+    small_x,small_y,big_x,big_y = data_dim
+    W = generate_blocks(data_dim) #features
+    F = big_x*big_y #number of features
+    T = small_x*small_y*big_x*big_y #dimension of feature
+    Y = np.zeros((N,T)) #init data
+    E = np.reshape(np.random.normal(0,sig,N*T),(N,T)) #noise
+    Z = np.zeros([N,F]) #init feature matrix
     if data_type == 'random':
         Z = np.random.binomial( 1 , .25 , [ N , F ] )
     if data_type == 'anti':
@@ -260,8 +263,25 @@ def construct_data(small_x,small_y,big_x,big_y,N,sig,data_type,corr_value=2):
         roulette = [1./len(indices) for i in range(len(indices))]
         for i in range(N):
             index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
-            Z[i,:] = [base[indices[index,k]] for k in range(F)]        
-    Z = np.random.permutation(Z)
+            Z[i,:] = [base[indices[index,k]] for k in range(F)]  
+    if data_type == 'special':
+        #this will change with 
+        #pattern = np.array([[0,1,0,1],[1,1,0,0],[0,0,1,1],[1,0,1,0])
+        pattern = np.array([[1,0,1,0],[1,1,0,0],[0,1,0,1],[0,0,1,1]])
+        combo = pattern.shape[0]
+        #we keep two copies so that 8 features is enough
+        pattern = np.concatenate((pattern,pattern))
+        
+        hold = 0
+        roulette = 1./combo * np.ones(combo)
+        #adding together 4 times
+        choose = [1]*combo + [0]*combo
+        for i in range(N):
+            #index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            val = np.where(np.random.permutation(choose) == 1)[0]
+            for index in val:
+                Z[i,:] = Z[i,:] + pattern[index,:]
+    #Z = np.random.permutation(Z)
     Y = np.dot(Z,W) + E
     return (Y,Z)  
 
