@@ -521,6 +521,8 @@ def upaintbox_sample(data_dim,log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,tr
             pred = pred_ll_paintbox(held_out, W, tree, sig)
             pred_ll.append(pred)
             rec = recover_paintbox(held_out,held_out[:,:T/2],W,tree,sig)
+        if it%500 == 0 and it > 0:
+            print_paintbox(tree,W,data_dim,'four')
         #if it%200 == 0 and it > 0:
         #    display_W(W,data_dim,'nine')
         #handling last iteration edge case

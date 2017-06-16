@@ -481,10 +481,10 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         N,K = Z.shape
         #sample Z
         Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
-        if it%10 == 0:
-            print("iteration: " + str(it))
-            print("Sparsity: " + str(np.sum(Z,axis=0)))
-            print('predictive log likelihood: ' + str(pred))
+#        if it%10 == 0:
+#            print("iteration: " + str(it))
+#            print("Sparsity: " + str(np.sum(Z,axis=0)))
+#            print('predictive log likelihood: ' + str(pred))
         #sample paintbox
         tree,lapse = sample_pb(Z,tree,res)
         #sample W        
@@ -494,11 +494,11 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,data_run):
         F,D = get_FD(tree)
         f_count.append(F)
         #predictive log likelihood
-        if it%500 == 0:
-            pred = pred_ll_paintbox(held_out, W, tree, sig)
-            pred_ll.append(pred)
-        if it%1000 == 0 and it > 0:
-            display_W(W,3,3,3,3,'nine')
+#        if it%500 == 0:
+#            pred = pred_ll_paintbox(held_out, W, tree, sig)
+#            pred_ll.append(pred)
+#        if it%1000 == 0 and it > 0:
+#            display_W(W,3,3,3,3,'four')
         #handling last iteration edge case
         drop = 0
         if it == iterate - 1:

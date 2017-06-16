@@ -61,6 +61,7 @@ def generate_blocks(data_dim):
         fill = density[choice]
         new_feature = np.random.permutation(np.array([1]*fill + [0]*(block-fill)))
         W[i,block*i:block*(i+1)] = new_feature
+    #W = W - 0.5*np.ones(W.shape)
     display_W(W,data_dim,'nine')
     return W
 
@@ -243,7 +244,8 @@ def log_data_zw(Y,Z,W,sig):
 
 def construct_data(data_dim,N,sig,data_type,corr_value=2):
     small_x,small_y,big_x,big_y = data_dim
-    W = generate_blocks(data_dim) #features
+    #W = generate_blocks(data_dim) #features
+    W = generate_gg_blocks()
     F = big_x*big_y #number of features
     T = small_x*small_y*big_x*big_y #dimension of feature
     Y = np.zeros((N,T)) #init data
@@ -270,16 +272,18 @@ def construct_data(data_dim,N,sig,data_type,corr_value=2):
         pattern = np.array([[1,0,1,0],[1,1,0,0],[0,1,0,1],[0,0,1,1]])
         combo = pattern.shape[0]
         #we keep two copies so that 8 features is enough
-        pattern = np.concatenate((pattern,pattern))
+        pattern = np.concatenate((pattern,pattern,pattern,pattern))
         
         hold = 0
-        roulette = 1./combo * np.ones(combo)
+        #roulette = 1./combo * np.ones(combo)
+        roulette = np.array([0.5,0.25,0.125,0.0625])
         #adding together 4 times
-        choose = [1]*combo + [0]*combo
-        for i in range(N):
-            #index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
-            val = np.where(np.random.permutation(choose) == 1)[0]
-            for index in val:
+        #choose = [1]*4 + [0]*12
+        for overlap in range(4):
+            for i in range(N):
+                index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+                #val = np.where(np.random.permutation(choose) == 1)[0]
+                #for index in val:
                 Z[i,:] = Z[i,:] + pattern[index,:]
     #Z = np.random.permutation(Z)
     Y = np.dot(Z,W) + E

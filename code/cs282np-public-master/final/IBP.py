@@ -176,11 +176,11 @@ def print_posterior(Z,W,data_dim):
             print("pad binary, reconstruct, probability")
             print(pad_binary)
             print(prob)
-            display_W(reconstruct,data_dim,'nine')
+            display_W(reconstruct,data_dim,'four')
     
 # The uncollapsed LG model. In a more real setting, one would want to
 # additionally sample/optimize the hyper-parameters!  
-def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select):
+def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,trunc,data_dim):
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
@@ -266,19 +266,22 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select):
         Z = Z[:,nonzero] 
         A = A[nonzero,:]
         active_K = Z.shape[1]
-
-        Z_new = np.random.binomial(1,0.008,[N,1])
-        mean = np.zeros(dim_count)
-        cov = sigma_a * np.eye(dim_count)
-        A_new = SPST.multivariate_normal.rvs(mean,cov)
-        A = np.vstack((A,A_new))
-        Z = np.hstack((Z,Z_new))
-        active_K = Z.shape[1]
+        if active_K < trunc:   
+            Z_new = np.random.binomial(1,0.25,[N,1])
+            #Z_new = np.zeros((N,1))
+            mean = np.zeros(dim_count)
+            cov = sigma_a * np.eye(dim_count)
+            A_new = SPST.multivariate_normal.rvs(mean,cov)
+            A = np.vstack((A,A_new))
+            Z = np.hstack((Z,Z_new))
+            active_K = Z.shape[1]
         if mcmc_iter%10 == 0:
             print("iteration: " + str(mcmc_iter))
             print("Sparsity: " + str(np.sum(Z,axis=0)))
             print('predictive log likelihood: ' + str(pred_prob))
             print('recovery log likelihood: ' + str(rec))
+            print("active K: " + str(active_K))
+            print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
         ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
