@@ -46,6 +46,7 @@ def generate_gg_blocks():
     W[2, [ 18 , 24 , 25 , 30 , 31 , 32 ] ] = 1
     W[3, [ 21 , 22 , 23 , 28 , 34 ] ] = 1 
     #W = W - 0.5*np.ones([4,36])
+    W = 500*1./np.sqrt(2*np.pi)*W
     return W 
 
 def generate_blocks(data_dim):
@@ -239,6 +240,7 @@ def log_data_zw(Y,Z,W,sig):
         delta_sum = np.trace(np.dot(delta.T,delta))
     #print(NK)
     ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
+    #ll =  -1./(2*sig**2) * delta_sum
     return ll 
 
 
@@ -285,8 +287,31 @@ def construct_data(data_dim,N,sig,data_type,corr_value=2):
                 #val = np.where(np.random.permutation(choose) == 1)[0]
                 #for index in val:
                 Z[i,:] = Z[i,:] + pattern[index,:]
+    if data_type == 'debug':
+        pattern = np.array([[1,0,1,0],[1,0,0,0],[0,0,1,0],[0,0,0,0]])
+        roulette = np.array([0.55,0.05,0.05,0.35])
+        combo = pattern.shape[0]
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = pattern[index,:]
+    if data_type == 'debug-four':
+        pattern = np.array([[1,0,1,0],[1,0,0,0],
+                            [0,0,1,0],[0,0,0,0],
+                            [0,1,0,1],[0,1,0,0],
+                            [0,0,0,1],[0,0,0,0]])
+        roulette = np.array([0.16,0.02,
+                             0.02,0.1,
+                             0.16,0.02,
+                             0.02,0.1])
+        combo = pattern.shape[0]
+        for i in range(N):
+            index = int(np.where(np.random.multinomial(1,roulette) == 1)[0])
+            Z[i,:] = pattern[index,:]
+        
     #Z = np.random.permutation(Z)
-    Y = np.dot(Z,W) + E
+    #Y = np.dot(Z,W) + E
+    Y = np.dot(Z,W) 
+    display_W(Y[1:10],'four')
     return (Y,Z)  
 
       

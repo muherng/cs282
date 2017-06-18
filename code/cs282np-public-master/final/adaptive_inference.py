@@ -11,7 +11,7 @@ import scipy.special as sps
 import scipy.stats as SPST
 import pdb
 import matplotlib.pyplot as plt
-from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw,construct_data 
+from generate_data import generate_data,pb_init,draw_Z,scale,display_W,draw_Z_tree,log_data_zw,construct_data,generate_gg_blocks 
 import profile
 from fractions import gcd
 from scipy.stats import norm
@@ -481,12 +481,24 @@ def recover_paintbox(held,observe,W,tree,sig):
 def upaintbox_sample(data_dim,log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate):
     small_x,small_y,big_x,big_y = data_dim
     N,T = Y.shape
+    #technically this is a bug
+    #generating tree with res = 1 is wrong.  
+    #but you fixed it in tree paintbox hard coded 0.5 
     res = 1
     tree = gen_tree(K,res)
     ctree,ptree = tree
     Z = draw_Z_tree(tree,N)
+    #Z = np.loadtxt('assignments.txt')
+    print(Z)
     #W = sample_W(Y,Z,sig,sig_w)
     W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
+    #W = np.loadtxt('features.txt')
+#    full = generate_gg_blocks()
+#    W = np.zeros((3,T))
+#    W[0,:] = full[0,:]
+#    W[1,:] = full[2,:]
+#    W[2,:] = full[0,:] + full[2,:]
+    display_W(W,'four')
     ll_list = [] 
     iter_time = [] 
     f_count = [] 
@@ -494,46 +506,52 @@ def upaintbox_sample(data_dim,log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,tr
     pred_ll = []
     pred = 0
     rec = 0
-    for it in range(iterate):
-        if it%hold == 0:
-            if res < 2**log_res:
-                res = res*2
-        
-        start = time.time()
-        N,K = Z.shape
-        #sample Z
-        Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
-        if it%10 == 0:
-            print("iteration: " + str(it))
-            print("Sparsity: " + str(np.sum(Z,axis=0)))
-            print('predictive log likelihood: ' + str(pred))
-            print('recover log likelihood: ' + str(rec))
-        #sample paintbox
-        tree,lapse = sample_pb(Z,tree,res)
-        #sample W        
-        W = sample_W(Y,Z,sig,sig_w)
-        #add new features
-        ll_list.append(log_data_zw(Y,Z,W,sig))
-        F,D = get_FD(tree)
-        f_count.append(F)
-        #predictive log likelihood
-        if it%100 == 0:
-            pred = pred_ll_paintbox(held_out, W, tree, sig)
-            pred_ll.append(pred)
-            rec = recover_paintbox(held_out,held_out[:,:T/2],W,tree,sig)
-        if it%500 == 0 and it > 0:
-            print_paintbox(tree,W,data_dim,'four')
-        #if it%200 == 0 and it > 0:
-        #    display_W(W,data_dim,'nine')
-        #handling last iteration edge case
-        drop = 0
-        if it == iterate - 1:
-            drop = 1
-        Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop,truncate)
-        end = time.time()
-        iter_time.append(end - start)
-        lapse_data.append(lapse)
-    iter_time = np.cumsum(iter_time)
+    for redo in range(2):
+        if redo == 1:
+            res = 1
+            N,K = Z.shape
+            tree = gen_tree(K,res)
+            ctree,ptree = tree
+        for it in range(iterate):
+            if it%hold == 0:
+                if res < 2**log_res:
+                    res = res*2
+            
+            start = time.time()
+            N,K = Z.shape
+            #sample Z
+            Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
+            if it%10 == 0:
+                print("iteration: " + str(it))
+                print("Sparsity: " + str(np.sum(Z,axis=0)))
+                print('predictive log likelihood: ' + str(pred))
+                print('recover log likelihood: ' + str(rec))
+            #sample paintbox
+            tree,lapse = sample_pb(Z,tree,res)
+            #sample W        
+            W = sample_W(Y,Z,sig,sig_w)
+            #add new features
+            ll_list.append(log_data_zw(Y,Z,W,sig))
+            F,D = get_FD(tree)
+            f_count.append(F)
+            #predictive log likelihood
+            if it%100 == 0:
+                pred = pred_ll_paintbox(held_out, W, tree, sig)
+                pred_ll.append(pred)
+                rec = recover_paintbox(held_out,held_out[:,:T/2],W,tree,sig)
+            if it%500 == 0 and it > 0:
+                print_paintbox(tree,W,data_dim,'four')
+            #if it%200 == 0 and it > 0:
+            #    display_W(W,data_dim,'nine')
+            #handling last iteration edge case
+            drop = 0
+            if it == iterate - 1:
+                drop = 1
+            Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop,truncate)
+            end = time.time()
+            iter_time.append(end - start)
+            lapse_data.append(lapse)
+        #iter_time = np.cumsum(iter_time)
     return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll,tree)
 
 def plot(title,x_axis,y_axis,data_x,data_y):

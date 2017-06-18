@@ -21,7 +21,8 @@ def gen_tree(F,res):
     ptree = np.zeros((F,2**F))
     for i in range(F):
         for j in range(2**i):
-            ctree[i,j] = float(int(np.where(np.random.multinomial(1,[1./(res+1)]*(res+1)) == 1)[0]))/res
+            #ctree[i,j] = float(int(np.where(np.random.multinomial(1,[1./(res+1)]*(res+1)) == 1)[0]))/res
+            ctree[i,j] = 0.5
     tree = update((ctree,ptree))
     return tree
 

@@ -11,7 +11,7 @@ import pdb
 from numpy.linalg import det
 import math
 import matplotlib.pyplot as plt
-from generate_data import generate_data,display_W,log_data_zw,construct_data
+from generate_data import generate_data,display_W,log_data_zw,construct_data,generate_gg_blocks
 #from make_toy_data import generate_random_A
 
 #you need a fair uncollapsed comparison.  
@@ -194,15 +194,22 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     #Z = np.transpose(np.matrix(SPST.bernoulli.rvs(0.25,size=data_count)))
     
     #Z = Z_gen
+    #Z = np.random.binomial(1,0.25,[N,1])
     Z = np.random.binomial(1,0.25,[N,1])
     active_K = 1  
     pred_ll = []  
     pred_prob = 0 
     rec = 0
+    #full = generate_gg_blocks()
+    #A = np.zeros((3,36))
+    #A[0,:] = full[0,:]
+    #A[1,:] = full[2,:]
+    #A[2,:] = full[0,:] + full[2,:]
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
         # Sampling existing A 
         A = resample_A(data_set,Z,sigma_a,sigma_n)
+        
         for n in range(data_count):
             for k in range(active_K): 
                 # Sampling existing Z 
@@ -258,34 +265,37 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
         #to quick return, indent 
         # Remove any unused
         # remove corresponding rows in A
-        Z_sum = np.array(Z.sum(axis=0))
-        nonzero = list()
-        for j in range(Z_sum.shape[0]):
-            if Z_sum[j] != 0:
-                nonzero.append(j)
-        Z = Z[:,nonzero] 
-        A = A[nonzero,:]
-        active_K = Z.shape[1]
-        if active_K < trunc:   
-            Z_new = np.random.binomial(1,0.25,[N,1])
-            #Z_new = np.zeros((N,1))
-            mean = np.zeros(dim_count)
-            cov = sigma_a * np.eye(dim_count)
-            A_new = SPST.multivariate_normal.rvs(mean,cov)
-            A = np.vstack((A,A_new))
-            Z = np.hstack((Z,Z_new))
+        if 1 == 1:
+            Z_sum = np.array(Z.sum(axis=0))
+            nonzero = list()
+            for j in range(Z_sum.shape[0]):
+                if Z_sum[j] != 0:
+                    nonzero.append(j)
+            Z = Z[:,nonzero] 
+            A = A[nonzero,:]
             active_K = Z.shape[1]
+            if active_K < trunc:   
+                Z_new = np.random.binomial(1,0.25,[N,1])
+                #Z_new = np.zeros((N,1))
+                mean = np.zeros(dim_count)
+                cov = sigma_a * np.eye(dim_count)
+                A_new = SPST.multivariate_normal.rvs(mean,cov)
+                A = np.vstack((A,A_new))
+                Z = np.hstack((Z,Z_new))
+                active_K = Z.shape[1]
+
+
         if mcmc_iter%10 == 0:
             print("iteration: " + str(mcmc_iter))
             print("Sparsity: " + str(np.sum(Z,axis=0)))
             print('predictive log likelihood: ' + str(pred_prob))
             print('recovery log likelihood: ' + str(rec))
             print("active K: " + str(active_K))
-            print_posterior(Z,A,data_dim)
+            #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
         ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
-        if mcmc_iter%10 == 0 and mcmc_iter > 0:
+        if mcmc_iter%50 == 0 and mcmc_iter > 0:
             Z_trunc,A_trunc = truncate(Z,A,select)
             pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
             pred_ll.append(pred_prob)
