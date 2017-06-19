@@ -26,8 +26,8 @@ from adaptive_inference import upaintbox_sample,print_paintbox,recover_paintbox
 from IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
 
 
-#algorithm = 'paintbox'
-algorithm = 'IBP'
+algorithm = 'paintbox'
+#algorithm = 'IBP'
 
 data_count = 1000
 held_out = 1000
@@ -84,6 +84,8 @@ if algorithm == 'paintbox':
     print("Log Recovery")
     print(recover_ll)
     print("End Paintbox Inference")
+    
+
     
     
     

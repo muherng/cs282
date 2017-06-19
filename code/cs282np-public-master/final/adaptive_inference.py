@@ -506,7 +506,7 @@ def upaintbox_sample(data_dim,log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,tr
     pred_ll = []
     pred = 0
     rec = 0
-    for redo in range(2):
+    for redo in range(1):
         if redo == 1:
             res = 1
             N,K = Z.shape
