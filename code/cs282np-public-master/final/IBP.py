@@ -3,14 +3,14 @@
 import numpy as np
 from numpy.linalg import inv
 import numpy.random as npr 
-import scipy.special as sps 
-import scipy.stats as SPST
-from scipy.misc import logsumexp 
+#import scipy.special as sps 
+#import scipy.stats as SPST
+#from scipy.misc import logsumexp 
 from copy import copy
 import pdb
 from numpy.linalg import det
 import math
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from generate_data import generate_data,display_W,log_data_zw,construct_data,generate_gg_blocks
 #from make_toy_data import generate_random_A
 
@@ -85,7 +85,8 @@ def resample_A( data_set , Z , sigma_a , sigma_n ):
     cov = sigma_n**2*iZTZI
     for col in range(D):
         try:
-            A[:,col] = SPST.multivariate_normal.rvs(np.squeeze(np.asarray(mean[:,col])),cov)
+            A[:,col] = np.random.multivariate_normal(np.squeeze(np.asarray(mean[:,col])),cov)
+            #A[:,col] = SPST.multivariate_normal.rvs(np.squeeze(np.asarray(mean[:,col])),cov)
         except (ValueError,IndexError):
             print('ValueError')
         
@@ -103,10 +104,9 @@ def resample_A( data_set , Z , sigma_a , sigma_n ):
 #            Z_post = Z_post + math.log(1 - z_prob[i])
 #    return Z_post
     
-def Z_posterior(z_row, Z):
-    N,K = Z.shape
+def Z_posterior(z_row, z_prob):
     Z_post = 0
-    z_prob = 1./(N+1) * np.sum(Z,axis=0)
+    K = len(z_prob)
     for i in range(K):
         if z_row[i] == 1:
             if z_prob[i] == 0:
@@ -124,22 +124,25 @@ def pred_ll_IBP(held,Z,W,sig):
     #should you be comparing the predictive log likelihood?  I think you should
     R,T = held.shape
     N,K = Z.shape
+    N,K = Z.shape
+    z_prob = 1./(N+1) * np.sum(Z,axis=0)
     log_pred = 0
     for i in range(R):
         pred_row = 0
         for j in range(2**K):
             binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
-            log_z_post = Z_posterior(pad_binary,Z)
+            log_z_post = Z_posterior(pad_binary,z_prob)
             total_z = np.array(pad_binary)
             pred_row = pred_row + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
         log_pred = log_pred + np.log(pred_row)
     return log_pred
 
-def recover_IBP(held,observe,Z,W,sig):
+def recover_IBP(held,observe,Z,W,sig,obs_indices):
     N,half = observe.shape    
     R,T = held.shape
     N,K = Z.shape
+    z_prob = 1./(N+1) * np.sum(Z,axis=0)
     log_recover = 0
     for i in range(R):
         full_ll = 0
@@ -147,11 +150,21 @@ def recover_IBP(held,observe,Z,W,sig):
         for j in range(2**K):
             binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
-            log_z_post = Z_posterior(pad_binary,Z)
+            log_z_post = Z_posterior(pad_binary,z_prob)
             total_z = np.array(pad_binary)
-            full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
-            observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,:half],sig) + log_z_post)
-        log_recover = log_recover + np.log(full_ll) - np.log(observe_ll)
+            full_ll =  log_data_zw(held[i,:],total_z,W,sig) + log_z_post
+            observe_ll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
+            if j == 0:
+                full_max = full_ll
+                observe_max = observe_ll
+            else:
+                if full_ll > full_max:
+                    full_max = full_ll
+                if observe_ll > observe_max:
+                    observe_max = observe_ll
+            #full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+            #observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post)
+        log_recover = log_recover + full_max - observe_max
     return log_recover
 
 def truncate(Z,A,select):
@@ -180,7 +193,7 @@ def print_posterior(Z,W,data_dim):
     
 # The uncollapsed LG model. In a more real setting, one would want to
 # additionally sample/optimize the hyper-parameters!  
-def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,trunc,data_dim):
+def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,trunc,observe,obs_indices,data_dim=[3,3,2,2]):
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
@@ -232,7 +245,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 if (math.isnan(update_probability)):
                     update_probability = 0
                 try:
-                    Z[n,k] = SPST.bernoulli.rvs(update_probability)
+                    Z[n,k] = np.random.binomial(1,update_probability)
                 except ValueError:
                     print('ValueError') 
         #Indent this one back to recover 
@@ -279,7 +292,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 #Z_new = np.zeros((N,1))
                 mean = np.zeros(dim_count)
                 cov = sigma_a * np.eye(dim_count)
-                A_new = SPST.multivariate_normal.rvs(mean,cov)
+                A_new = np.random.multivariate_normal(mean,cov)
                 A = np.vstack((A,A_new))
                 Z = np.hstack((Z,Z_new))
                 active_K = Z.shape[1]
@@ -299,7 +312,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             Z_trunc,A_trunc = truncate(Z,A,select)
             pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
             pred_ll.append(pred_prob)
-            rec = recover_IBP(held_out,held_out[:,:dim_count/2],Z,A,sigma_n)
+            rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
     return Z,A,ll_set,pred_ll
 
     

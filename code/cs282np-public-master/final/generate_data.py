@@ -239,8 +239,8 @@ def log_data_zw(Y,Z,W,sig):
     else:
         delta_sum = np.trace(np.dot(delta.T,delta))
     #print(NK)
-    ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
-    #ll =  -1./(2*sig**2) * delta_sum
+    #ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
+    ll =  -1./(2*sig**2) * delta_sum
     return ll 
 
 
