@@ -241,6 +241,8 @@ def log_data_zw(Y,Z,W,sig):
     #print(NK)
     #ll =  -1./(2*sig**2) * delta_sum - NK*(0.5*math.log(2*np.pi) + math.log(sig))
     ll =  -1./(2*sig**2) * delta_sum
+    if ll > 0:
+        print(delta_sum)
     return ll 
 
 

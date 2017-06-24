@@ -464,31 +464,69 @@ def recover_paintbox(held,observe,W,tree,sig,obs_indices):
     R,T = held.shape
     K,T = W.shape
     log_recover = 0
+    upper_bound = 0
+    lower_bound = 0
     vec = get_vec(tree)
     for i in range(R):
-        full_ll = 0
-        observe_ll = 0
-        full_max = 0
-        observe_max = 0 
+        f_max = 0
+        o_max = 0
+        f_error = 0
+        o_error = 0
+        numu = 0
+        numl = 0
+        denu = 0
+        denl = 0
+        valid = True
         for j in range(2**K):
             binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
             log_z_post = np.log(Z_paintbox(pad_binary,vec))
+            if math.isinf(log_z_post):
+                continue
             total_z = np.array(pad_binary)
-            full_ll =  log_data_zw(held[i,:],total_z,W,sig) + log_z_post
-            observe_ll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
-            if j == 0:
-                full_max = full_ll
-                observe_max = observe_ll
+            fll = log_data_zw(held[i,:],total_z,W,sig) + log_z_post
+            oll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
+            if valid:
+                f_max = fll
+                o_max = oll
+                valid = False
             else:
-                if full_ll > full_max:
-                    full_max = full_ll
-                if observe_ll > observe_max:
-                    observe_max = observe_ll
-            #full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
-            #observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post)
-        log_recover = log_recover + full_max - observe_max
-        #log_recover = log_recover + np.log(full_ll) - np.log(observe_ll)
+                if fll > f_max:
+                    f_error = f_max
+                    f_max = fll
+                if oll > o_max:
+                    o_error = o_max
+                    o_max = oll
+        log_recover = log_recover + f_max - o_max
+        if f_error == 0:
+            numu = numu + f_max
+        elif f_max - f_error > 10:
+            numu = numu + f_max
+        else:
+            numu = numu + np.log(np.exp(f_max-f_error) + (2**K - 1)) + f_error
+        
+        numl = numl + f_max
+        
+        if o_error == 0:
+            denu = denu + o_max
+        elif o_max - o_error > 10:
+            denu = denu + o_max
+        else:
+            denu = denu + np.log(np.exp(o_max-o_error) + (2**K - 1)) + o_error
+        
+        denl = denl + o_max
+        
+        upper_bound = upper_bound + numu - denl
+        lower_bound = lower_bound + numl - denu
+        if math.isinf(lower_bound):
+            print("lower bound isinf")
+            
+    print("estimate")
+    print(log_recover)
+    print("lower bound")
+    print(lower_bound)
+    print("upper bound")
+    print(upper_bound)
     return log_recover
     
 def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,obs_indices,data_dim = [3,3,2,2]):
@@ -518,6 +556,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
     lapse_data = [] 
     pred_ll = []
     pred = 0
+    rec_ll = []
     rec = 0
     observe = held_out[:,obs_indices]
     for redo in range(1):
@@ -550,9 +589,11 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             f_count.append(F)
             #predictive log likelihood
             if it%100 == 0:
-                pred = pred_ll_paintbox(held_out, W, tree, sig)
+                #pred = pred_ll_paintbox(held_out, W, tree, sig)
+                pred = 0
                 pred_ll.append(pred)
                 rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
+                rec_ll.append(rec)
             if it%500 == 0 and it > 0:
                 print_paintbox(tree,W,data_dim,'four')
             #if it%200 == 0 and it > 0:
@@ -566,7 +607,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             iter_time.append(end - start)
             lapse_data.append(lapse)
         #iter_time = np.cumsum(iter_time)
-    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll,tree)
+    return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll,rec_ll,tree)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
     plt.plot(data_x,data_y)

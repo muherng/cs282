@@ -8,10 +8,12 @@ import numpy.random as npr
 #from scipy.misc import logsumexp 
 from copy import copy
 import pdb
+import time
 from numpy.linalg import det
 import math
 #import matplotlib.pyplot as plt
 from generate_data import generate_data,display_W,log_data_zw,construct_data,generate_gg_blocks
+from random import randint
 #from make_toy_data import generate_random_A
 
 #you need a fair uncollapsed comparison.  
@@ -139,32 +141,104 @@ def pred_ll_IBP(held,Z,W,sig):
     return log_pred
 
 def recover_IBP(held,observe,Z,W,sig,obs_indices):
-    N,half = observe.shape    
+#    N,half = observe.shape    
+#    R,T = held.shape
+#    N,K = Z.shape
+#    z_prob = 1./(N+1) * np.sum(Z,axis=0)    
+#    log_recover = 0
+#    for i in range(R):
+#        rec_max = 0 
+#        error = 0
+#        valid = True
+#        for j in range(2**K):
+#            binary = list(map(int,"{0:b}".format(j)))
+#            pad_binary = [0]*(K-len(binary)) + binary
+#            log_z_post = Z_posterior(pad_binary,z_prob)
+#            if math.isinf(log_z_post):
+#                continue
+#            total_z = np.array(pad_binary)
+#            full_ll =  log_data_zw(held[i,:],total_z,W,sig) + log_z_post
+#            observe_ll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
+#            if j == 0:
+#                full_max = full_ll
+#                observe_max = observe_ll
+#            else:
+#                if full_ll > full_max:
+#                    full_max = full_ll
+#                if observe_ll > observe_max:
+#                    observe_max = observe_ll
+#            #full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
+#            #observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post)
+#        log_recover = log_recover + full_max - observe_max
+#    return log_recover
+    _,obs = observe.shape 
     R,T = held.shape
-    N,K = Z.shape
-    z_prob = 1./(N+1) * np.sum(Z,axis=0)
+    K,T = W.shape
+    N,T = Z.shape
+    z_prob = 1./(N+1) * np.sum(Z,axis=0)    
     log_recover = 0
+    upper_bound = 0
+    lower_bound = 0
     for i in range(R):
-        full_ll = 0
-        observe_ll = 0
+        f_max = 0
+        o_max = 0
+        f_error = 0
+        o_error = 0
+        numu = 0
+        numl = 0
+        denu = 0
+        denl = 0
+        valid = True
         for j in range(2**K):
             binary = list(map(int,"{0:b}".format(j)))
             pad_binary = [0]*(K-len(binary)) + binary
             log_z_post = Z_posterior(pad_binary,z_prob)
+            if math.isinf(log_z_post):
+                continue
             total_z = np.array(pad_binary)
-            full_ll =  log_data_zw(held[i,:],total_z,W,sig) + log_z_post
-            observe_ll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
-            if j == 0:
-                full_max = full_ll
-                observe_max = observe_ll
+            fll = log_data_zw(held[i,:],total_z,W,sig) + log_z_post
+            oll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
+            if valid:
+                f_max = fll
+                o_max = oll
+                valid = False
             else:
-                if full_ll > full_max:
-                    full_max = full_ll
-                if observe_ll > observe_max:
-                    observe_max = observe_ll
-            #full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
-            #observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post)
-        log_recover = log_recover + full_max - observe_max
+                if fll > f_max:
+                    f_error = f_max
+                    f_max = fll
+                if oll > o_max:
+                    o_error = o_max
+                    o_max = oll
+        log_recover = log_recover + f_max - o_max
+        if f_error == 0:
+            numu = numu + f_max
+        elif f_max - f_error > 10:
+            numu = numu + f_max
+        else:
+            numu = numu + np.log(np.exp(f_max-f_error) + (2**K - 1)) + f_error
+        
+        numl = numl + f_max
+        
+        if o_error == 0:
+            denu = denu + o_max
+        elif o_max - o_error > 10:
+            denu = denu + o_max
+        else:
+            denu = denu + np.log(np.exp(o_max-o_error) + (2**K - 1)) + o_error
+        
+        denl = denl + o_max
+        
+        upper_bound = upper_bound + numu - denl
+        lower_bound = lower_bound + numl - denu
+        if math.isinf(lower_bound):
+            print("lower bound isinf")
+            
+    print("estimate")
+    print(log_recover)
+    print("lower bound")
+    print(lower_bound)
+    print("upper bound")
+    print(upper_bound)
     return log_recover
 
 def truncate(Z,A,select):
@@ -201,6 +275,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     dim_count = data_set.shape[1] 
     ll_set = np.zeros( [ iter_count ] )
     lp_set = np.zeros( [ iter_count ] ) 
+    iter_time = [] 
      
     # Initialize Z randomly (explore how different initializations matter)
     #I'm going to explore different initalizations
@@ -208,10 +283,13 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     
     #Z = Z_gen
     #Z = np.random.binomial(1,0.25,[N,1])
-    Z = np.random.binomial(1,0.25,[N,1])
+    #Z = np.random.binomial(1,0.25,[N,1])
+    Z = np.zeros((N,1))
+    Z[randint(0,N-1),0] = 1
     active_K = 1  
     pred_ll = []  
-    pred_prob = 0 
+    pred_prob = 0
+    rec_ll = []
     rec = 0
     #full = generate_gg_blocks()
     #A = np.zeros((3,36))
@@ -221,6 +299,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
         # Sampling existing A 
+        start = time.time()
         A = resample_A(data_set,Z,sigma_a,sigma_n)
         
         for n in range(data_count):
@@ -288,17 +367,20 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             A = A[nonzero,:]
             active_K = Z.shape[1]
             if active_K < trunc:   
-                Z_new = np.random.binomial(1,0.25,[N,1])
+                #Z_new = np.random.binomial(1,0.005,[N,1])
                 #Z_new = np.zeros((N,1))
+                Z_new = np.zeros((N,1))
+                Z_new[randint(0,N-1)] = 1
                 mean = np.zeros(dim_count)
                 cov = sigma_a * np.eye(dim_count)
                 A_new = np.random.multivariate_normal(mean,cov)
                 A = np.vstack((A,A_new))
                 Z = np.hstack((Z,Z_new))
                 active_K = Z.shape[1]
-
-
-        if mcmc_iter%10 == 0:
+        
+        end = time.time()
+        iter_time.append(end - start)
+        if mcmc_iter%1 == 0:
             print("iteration: " + str(mcmc_iter))
             print("Sparsity: " + str(np.sum(Z,axis=0)))
             print('predictive log likelihood: ' + str(pred_prob))
@@ -307,13 +389,28 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
-        ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
-        if mcmc_iter%50 == 0 and mcmc_iter > 0:
+        if mcmc_iter%10 == 0:
             Z_trunc,A_trunc = truncate(Z,A,select)
             pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
             pred_ll.append(pred_prob)
-            rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
-    return Z,A,ll_set,pred_ll
+            rec = recover_IBP(held_out,observe,Z_trunc,A_trunc,sigma_n,obs_indices)
+            rec_ll.append(rec)
+            z_prob = 1./(N+1)*Z.sum(axis=0)
+            opt = [z > 0.5 for z in z_prob]
+            sums = np.zeros(N)
+            for i in range(N):
+                for j in range(active_K):
+                    if Z[i,j] != opt[j]:
+                        sums[i] += 1
+            sums = list(sums)
+            val = set(sums)
+            val_count = []
+            for v in val:
+                val_count.append((v,sums.count(v)))
+            print("VAL COUNT")
+            print(val_count)
+        ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
+    return Z,A,ll_set,pred_ll,rec_ll,iter_time
 
     
 def plot(title,x_axis,y_axis,data_x,data_y):
