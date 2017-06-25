@@ -14,6 +14,7 @@ import math
 #import matplotlib.pyplot as plt
 from generate_data import generate_data,display_W,log_data_zw,construct_data,generate_gg_blocks
 from random import randint
+from itertools import combinations
 #from make_toy_data import generate_random_A
 
 #you need a fair uncollapsed comparison.  
@@ -141,36 +142,6 @@ def pred_ll_IBP(held,Z,W,sig):
     return log_pred
 
 def recover_IBP(held,observe,Z,W,sig,obs_indices):
-#    N,half = observe.shape    
-#    R,T = held.shape
-#    N,K = Z.shape
-#    z_prob = 1./(N+1) * np.sum(Z,axis=0)    
-#    log_recover = 0
-#    for i in range(R):
-#        rec_max = 0 
-#        error = 0
-#        valid = True
-#        for j in range(2**K):
-#            binary = list(map(int,"{0:b}".format(j)))
-#            pad_binary = [0]*(K-len(binary)) + binary
-#            log_z_post = Z_posterior(pad_binary,z_prob)
-#            if math.isinf(log_z_post):
-#                continue
-#            total_z = np.array(pad_binary)
-#            full_ll =  log_data_zw(held[i,:],total_z,W,sig) + log_z_post
-#            observe_ll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
-#            if j == 0:
-#                full_max = full_ll
-#                observe_max = observe_ll
-#            else:
-#                if full_ll > full_max:
-#                    full_max = full_ll
-#                if observe_ll > observe_max:
-#                    observe_max = observe_ll
-#            #full_ll = full_ll + np.exp(log_data_zw(held[i,:],total_z,W,sig) + log_z_post)
-#            #observe_ll = observe_ll + np.exp(log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post)
-#        log_recover = log_recover + full_max - observe_max
-#    return log_recover
     _,obs = observe.shape 
     R,T = held.shape
     K,T = W.shape
@@ -180,6 +151,8 @@ def recover_IBP(held,observe,Z,W,sig,obs_indices):
     upper_bound = 0
     lower_bound = 0
     for i in range(R):
+        print('row')
+        print(i)
         f_max = 0
         o_max = 0
         f_error = 0
@@ -196,6 +169,9 @@ def recover_IBP(held,observe,Z,W,sig,obs_indices):
             if math.isinf(log_z_post):
                 continue
             total_z = np.array(pad_binary)
+            #print(held[i,:].shape)
+            #print(total_z.shape)
+            #print(W.shape)
             fll = log_data_zw(held[i,:],total_z,W,sig) + log_z_post
             oll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
             if valid:
@@ -241,6 +217,84 @@ def recover_IBP(held,observe,Z,W,sig,obs_indices):
     print(upper_bound)
     return log_recover
 
+#def recover_IBP(held,observe,Z,W,sig,obs_indices,select):
+#    _,obs = observe.shape 
+#    R,T = held.shape
+#    K,T = W.shape
+#    N,T = Z.shape
+#    z_prob = 1./(N+1) * np.sum(Z,axis=0)    
+#    log_recover = 0
+#    upper_bound = 0
+#    lower_bound = 0
+#    opt = [z > 0.5 for z in z_prob]
+#    index = [ind for ind in range(K)]
+#    for i in range(R):
+#        print('row')
+#        print(i)
+#        f_max = 0
+#        o_max = 0
+#        f_error = 0
+#        o_error = 0
+#        numu = 0
+#        numl = 0
+#        denu = 0
+#        denl = 0
+#        valid = True
+#        for j in range(select):
+#            combo = list(combinations(index,j))
+#            for com in combo:
+#                binary = np.copy(opt)
+#                for c in com:
+#                    binary[c] = 1 - binary[c]
+#                log_z_post = Z_posterior(binary,z_prob)
+#                if math.isinf(log_z_post):
+#                    continue
+#                total_z = np.array(binary)
+#                fll = log_data_zw(held[i,:],total_z,W,sig) + log_z_post
+#                oll = log_data_zw(observe[i,:],total_z,W[:,obs_indices],sig) + log_z_post
+#                if valid:
+#                    f_max = fll
+#                    o_max = oll
+#                    valid = False
+#                else:
+#                    if fll > f_max:
+#                        f_error = f_max
+#                        f_max = fll
+#                    if oll > o_max:
+#                        o_error = o_max
+#                        o_max = oll
+#        log_recover = log_recover + f_max - o_max
+#        if f_error == 0:
+#            numu = numu + f_max
+#        elif f_max - f_error > 10:
+#            numu = numu + f_max
+#        else:
+#            numu = numu + np.log(np.exp(f_max-f_error) + (2**K - 1)) + f_error
+#        
+#        numl = numl + f_max
+#        
+#        if o_error == 0:
+#            denu = denu + o_max
+#        elif o_max - o_error > 10:
+#            denu = denu + o_max
+#        else:
+#            denu = denu + np.log(np.exp(o_max-o_error) + (2**K - 1)) + o_error
+#        
+#        denl = denl + o_max
+#        
+#        upper_bound = upper_bound + numu - denl
+#        lower_bound = lower_bound + numl - denu
+#        if math.isinf(lower_bound):
+#            print("lower bound isinf")
+#            
+#    print("estimate")
+#    print(log_recover)
+#    print("lower bound")
+#    print(lower_bound)
+#    print("upper bound")
+#    print(upper_bound)
+#    return log_recover
+
 def truncate(Z,A,select):
     N,K = Z.shape
     z_sum = np.sum(Z,axis=0)
@@ -277,9 +331,6 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     lp_set = np.zeros( [ iter_count ] ) 
     iter_time = [] 
      
-    # Initialize Z randomly (explore how different initializations matter)
-    #I'm going to explore different initalizations
-    #Z = np.transpose(np.matrix(SPST.bernoulli.rvs(0.25,size=data_count)))
     
     #Z = Z_gen
     #Z = np.random.binomial(1,0.25,[N,1])
@@ -326,34 +377,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 try:
                     Z[n,k] = np.random.binomial(1,update_probability)
                 except ValueError:
-                    print('ValueError') 
-        #Indent this one back to recover 
-        # Consider adding new features - decide whether it should be
-        # collapsed or uncollapsed.
-#        pk_new = list()
-#        X_ll = list()
-#        for k_new in range(K_max):
-#            if k_new > 0:
-#                Z_new = np.zeros((N,k_new))
-#                Z_new[n,:] = np.ones(k_new)
-#                X_ll.append(data_ll_new(data_set,Z,A,k_new,Z_new,sigma_a,sigma_n))
-#            else:  
-#                X_ll.append(ullikelihood(data_set,Z,A,sigma_n))
-#                #X_ll.append(0)
-#        shift = max(X_ll)
-#        pk_new = [SPST.poisson.pmf(i,float(alpha)/N)*np.exp(X_ll[i]-shift) for i in range(K_max)]
-#        normalise = sum(pk_new)
-#        pk_normalise = [float(p)/normalise for p in pk_new]
-#        try:
-#            num_new, = np.where(np.random.multinomial(1,pk_normalise) == 1)[0]
-#        except (ValueError,IndexError):
-#            print('ValueError')
-#        if num_new > 0:
-            #Z_new = np.zeros((N,num_new))
-            #Z_new[n,:] = np.ones(num_new)
-            #sample A_new
-            #A = np.vstack((A,A_new(X,Z_new,Z,A,sigma_a,sigma_n))) 
-        
+                    print('ValueError')         
         #to quick return, indent 
         # Remove any unused
         # remove corresponding rows in A
@@ -389,11 +413,12 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
-        if mcmc_iter%10 == 0:
-            Z_trunc,A_trunc = truncate(Z,A,select)
-            pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
+        if mcmc_iter%30 == 0 and mcmc_iter > 0:
+            #Z_trunc,A_trunc = truncate(Z,A,select)
+            #pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
+            pred_prob = 0
             pred_ll.append(pred_prob)
-            rec = recover_IBP(held_out,observe,Z_trunc,A_trunc,sigma_n,obs_indices)
+            rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
             rec_ll.append(rec)
             z_prob = 1./(N+1)*Z.sum(axis=0)
             opt = [z > 0.5 for z in z_prob]

@@ -25,6 +25,7 @@ import sys
 from adaptive_real import upaintbox_sample,print_paintbox,recover_paintbox
 from IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
 from load_data import load
+from itertools import combinations,permutations
 
 #choose the algorithm
 #algorithm = 'paintbox'
@@ -38,33 +39,42 @@ test_count = 69
 total_data =  train_count + test_count
 #sig = 1./np.sqrt(2*np.pi) #noise
 #sig_w = sig*150 #feature deviation
-sig = 5
+sig = 3
 sig_w = 150
 sig_test = sig
 #full_data,Z_gen = construct_data(data_dim,data_count + held_out,sig,data_type)
 if train_count + test_count > datapoints:
     data_count = datapoints
     
-indices = np.random.choice(datapoints,total_data)
+#indices = list(combinations([i for i in range(datapoints)],total_data))
+index = np.zeros(datapoints)
+index[:total_data] = np.ones(total_data)
+indices = np.where(np.random.permutation(index) == 1)[0]
 select_data = full_data[indices,:]
-train_indices = np.random.choice(total_data,train_count)
+#train_indices = list(combinations([i for i in range(total_data)],train_coabs
+index = np.zeros(total_data)
+index[:train_count] = np.ones(train_count)
+train_indices = np.where(np.random.permutation(index) == 1)[0]
 train = select_data[train_indices,:]
 all_indices = [i for i in range(total_data)]
 test_indices = [item for item in all_indices if item not in train_indices]
 test = select_data[test_indices,:]
 #we observe half the signal and recover the other half
-obs = 0.8 #fraction observed
+obs = 0.7 #fraction observed
 dim_indices = [i for i in range(dimension)]
 #obs_indices = np.random.choice(dimension,int(dimension*obs))
 obs_indices = [i for i in range(int(dimension*obs))]
 print(obs_indices)
 observe = test[:,obs_indices]
+print(observe.shape)
 
 if algorithm == 'IBP':
-    trunc = 50
+    trunc = 15
     iterate = 400
     alpha = 2.0
     select = 10
+    print("test shape")
+    print(test.shape)
     Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,sig_w,iterate,select,trunc,observe,obs_indices)
     Z_trunc,W_trunc = truncate(Z,W,select)
     #print_posterior(Z_trunc,W_trunc,data_dim)
@@ -77,7 +87,7 @@ if algorithm == 'IBP':
     np.savetxt("time.txt", iter_time)
 
 if algorithm == 'paintbox':
-    trunc = 12 #truncate active features
+    trunc = 15 #truncate active features
     log_res = 10 #log of res
     hold = 300 #hold resolution for # iterations
     iterate = 3000

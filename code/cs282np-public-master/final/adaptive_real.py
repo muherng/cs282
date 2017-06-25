@@ -458,7 +458,9 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
         ll_list.append(log_data_zw(Y,Z,W,sig) + Z_vec(Z,vec,D) + log_w_sig(W,sig))
     
     return (ll_list,Z,W,pb)
-    
+
+
+   
 def recover_paintbox(held,observe,W,tree,sig,obs_indices):
     N,obs = observe.shape 
     R,T = held.shape
