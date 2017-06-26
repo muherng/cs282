@@ -31,7 +31,8 @@ def vectorize(pb):
         try:
             num = int(''.join(map(str, pb[:,i])).replace(".0",""),2)           
         except ValueError:
-            print("ValueError")
+            q = 3
+            #print("ValueError")
         vec[num] += 1
     return vec
 
@@ -119,18 +120,19 @@ def log_collapsed(Y,Z,sig,sig_w):
     try: 
         tmp = np.linalg.inv(np.dot(Z.T, Z) + (float(sig)/sig_w)**2*np.eye(K))
     except np.linalg.linalg.LinAlgError:
-        print('singular matrix')
-        
+        #print('singular matrix')
+        q = 3
     try:
         tmp = np.eye(N)-np.dot(np.dot(Z, tmp), Z.T)
     except ValueError:
-        print('Value Error')
+        #print('Value Error')
+        q = 3
     tmp = -1/(2*sig**2)*np.trace(np.dot(np.dot(Y.T, tmp), Y))
     try:
         ll = tmp - (float(N*D)/2*np.log(2*np.pi)+(N-K)*D*np.log(sig)+K*D*np.log(sig_w)+float(D)/2*np.log(np.linalg.det(np.dot(Z.T,Z)+(float(sig)/sig_w)**2*np.eye(K))))
     except np.linalg.linalg.LinAlgError:
-        print('LinAlgError')
-    
+        #print('LinAlgError')
+        q = 3
     return ll 
 
 # Uncollapsed Likelihood 
@@ -188,8 +190,8 @@ def sample_Z(Y,Z,W,sig,sig_w,tree):
                     Z[i,j] == 0
                     prob_matrix[i,j] = 0
                 if zp_zero == 0:
-                    if np.sum(Z,axis=0)[j] == 0:
-                        print("Feature Kick: Undesirable Behavior")
+                    #if np.sum(Z,axis=0)[j] == 0:
+                        #print("Feature Kick: Undesirable Behavior")
                     Z[i,j] == 1
                     prob_matrix[i,j] = 1
             else:
@@ -322,7 +324,7 @@ def sample_pb(Z,tree,res):
                     else:
                         log_roulette.append(val)
                 if len(log_roulette) == 0:
-                    print("paintbox update broken")
+                    #print("paintbox update broken")
                     sys.exit()
                 shift = max(log_roulette)
                 roulette = [np.exp(lr - shift) for lr in log_roulette] 
@@ -334,7 +336,7 @@ def sample_pb(Z,tree,res):
                 except TypeError:
                     #BEWARE, THIS CHANGES IF YOU ADJUST THE EXPONENT OF RES
                     chosen = 1
-                    print("INVARIANT BROKEN")
+                    #print("INVARIANT BROKEN")
                 vec = mat_vec[chosen,:]
             ctree[i,j] = 0
             ctree[i,j] = float(chosen+lbound)/res
@@ -365,8 +367,8 @@ def sample_W(Y,Z,sig,sig_w):
         try:
             W[:,col] = np.random.multivariate_normal(np.squeeze(np.asarray(mean[:,col])),cov)
         except (ValueError,IndexError):
-            print('ValueError')
-        
+            #print('ValueError')
+            q = 3
     return W
 
 def draw_feature(Z,tree,res,ext):
@@ -428,7 +430,7 @@ def print_paintbox(tree,W,data_dim,flag='four'):
     vec = get_vec(tree)
     F,D = get_FD(tree)
     K = int(math.log(D,2))
-    print("outputting paintbox")
+    #print("outputting paintbox")
     for j in range(D):
         binary = list(map(int,"{0:b}".format(j)))
         pad_binary = [0]*(K-len(binary)) + binary
@@ -436,9 +438,9 @@ def print_paintbox(tree,W,data_dim,flag='four'):
         if prob > 0.01:
             pad_binary = np.array(pad_binary)
             reconstruct = np.dot(pad_binary,W)
-            print("pad binary, reconstruct, probability")
-            print(pad_binary)
-            print(prob)
+            #print("pad binary, reconstruct, probability")
+            #print(pad_binary)
+            #print(prob)
             #display_W(reconstruct,data_dim,flag)
     return 0
       
@@ -447,7 +449,7 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
     Z = draw_Z(pb,D,F,N,T)
         
     ll_list = []
-    print("gibbs sample")
+    #print("gibbs sample")
     for it in range(iterate):
         #sample Z
         Z = sample_Z(Y,Z,sig,sig_w,pb,D,F,N,T)
@@ -520,18 +522,20 @@ def recover_paintbox(held,observe,W,tree,sig,obs_indices):
         
         upper_bound = upper_bound + numu - denl
         lower_bound = lower_bound + numl - denu
-        if math.isinf(lower_bound):
-            print("lower bound isinf")
+        #if math.isinf(lower_bound):
+            #print("lower bound isinf")
             
-    print("estimate")
-    print(log_recover)
-    print("lower bound")
-    print(lower_bound)
-    print("upper bound")
-    print(upper_bound)
+    #print("estimate")
+    #print(log_recover)
+    #print("lower bound")
+    #print(lower_bound)
+    #print("upper bound")
+    #print(upper_bound)
     return log_recover
     
-def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,obs_indices,data_dim = [3,3,2,2]):
+def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,obs_indices,limit,data_dim = [3,3,2,2]):
+    #print('time limit')
+    #print(limit)
     small_x,small_y,big_x,big_y = data_dim
     N,T = Y.shape
     #technically this is a bug
@@ -542,7 +546,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
     ctree,ptree = tree
     Z = draw_Z_tree(tree,N)
     #Z = np.loadtxt('assignments.txt')
-    print(Z)
+    #print(Z)
     #W = sample_W(Y,Z,sig,sig_w)
     W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     #W = np.loadtxt('features.txt')
@@ -568,19 +572,25 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             tree = gen_tree(K,res)
             ctree,ptree = tree
         for it in range(iterate):
+            if it == 0:
+                start = time.time()
+            if it > 0:
+                #print(np.sum(iter_time))
+                #print(limit)
+                if np.sum(iter_time) > limit:
+                    break     
             if it%hold == 0:
                 if res < 2**log_res:
-                    res = res*2
-            
+                    res = res*2     
             start = time.time()
             N,K = Z.shape
             #sample Z
             Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
-            if it%10 == 0:
-                print("iteration: " + str(it))
-                print("Sparsity: " + str(np.sum(Z,axis=0)))
-                print('predictive log likelihood: ' + str(pred))
-                print('recover log likelihood: ' + str(rec))
+            #if it%10 == 0:
+                #print("iteration: " + str(it))
+                #print("Sparsity: " + str(np.sum(Z,axis=0)))
+                #print('predictive log likelihood: ' + str(pred))
+                #print('recover log likelihood: ' + str(rec))
             #sample paintbox
             tree,lapse = sample_pb(Z,tree,res)
             #sample W        
@@ -589,15 +599,19 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             ll_list.append(log_data_zw(Y,Z,W,sig))
             F,D = get_FD(tree)
             f_count.append(F)
-            #predictive log likelihood
-            if it%100 == 0:
+            #recovered log likelihood
+            if it%100 == 0 and it > 0:
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)
                 rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
                 rec_ll.append(rec)
-            if it%500 == 0 and it > 0:
-                print_paintbox(tree,W,data_dim,'four')
+                end = time.time()
+                iter_time.append(end - start)
+                start = time.time()
+            #Auxiliary printouts
+            #if it%500 == 0 and it > 0:
+            #    print_paintbox(tree,W,data_dim,'four')
             #if it%200 == 0 and it > 0:
             #    display_W(W,data_dim,'nine')
             #handling last iteration edge case
@@ -605,10 +619,8 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             if it == iterate - 1:
                 drop = 1
             Z,W,tree = new_feature(Y,Z,W,tree,ext,K,res,sig,sig_w,drop,truncate)
-            end = time.time()
-            iter_time.append(end - start)
             lapse_data.append(lapse)
-        #iter_time = np.cumsum(iter_time)
+    iter_time = np.cumsum(iter_time)
     return (ll_list,iter_time,f_count,lapse_data,Z,W,prob_matrix,pred_ll,rec_ll,tree)
 
 def plot(title,x_axis,y_axis,data_x,data_y):
@@ -666,7 +678,7 @@ if __name__ == "__main__":
     #algorithm = 'uncollapsed'
     #you'll come back to this
     while valid < runs:
-        print("Trial Number: " + str(valid))
+        #print("Trial Number: " + str(valid))
         if algorithm == 'paintbox': 
             #profile.run('upaintbox_sample(log_res,hold,Y,held_out,ext,sig_alg,sig_w,iterate,K,valid)')
             ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,tree = upaintbox_sample(data_dim,log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate)
@@ -735,18 +747,18 @@ if __name__ == "__main__":
     
     #visual verification of data reconstruction
     approx = np.dot(Z,W)
-    for i in range(10):
-        print("sample: " + str(i))
-        print("features probability")
-        print(prob_matrix[i,:])
-        print("features selected")
-        print(Z[i,:])
+    #for i in range(10):
+        #print("sample: " + str(i))
+        #print("features probability")
+        #print(prob_matrix[i,:])
+        #print("features selected")
+        #print(Z[i,:])
         #display_W(approx[i:i+1,:],data_dim,flag)
-        print("data: " + str(i))
+        #print("data: " + str(i))
         #display_W(Y[i:i+1,:],data_dim,flag)
     
     #printing paintbox (only makes sense for single run)
-    print_paintbox(tree,W,data_dim,flag)    
+    #print_paintbox(tree,W,data_dim,flag)    
     #display_W(W,small_x,small_y,big_x,big_y,'nine')    
         
         

@@ -61,7 +61,8 @@ def A_new(data_set,Z_new,Z_old,A_old,sigma_a,sigma_n):
         try:
             A_new[:,i] = SPST.multivariate_normal.rvs(np.squeeze(np.asarray(mean[:,i])),cov)
         except (ValueError,TypeError,IndexError):
-            print('ValueError')
+            #print('ValueError')
+            q = 3
 
     #return A_new
     return A_new
@@ -91,7 +92,8 @@ def resample_A( data_set , Z , sigma_a , sigma_n ):
             A[:,col] = np.random.multivariate_normal(np.squeeze(np.asarray(mean[:,col])),cov)
             #A[:,col] = SPST.multivariate_normal.rvs(np.squeeze(np.asarray(mean[:,col])),cov)
         except (ValueError,IndexError):
-            print('ValueError')
+            #print('ValueError')
+            q = 3
         
     return A
     
@@ -151,8 +153,8 @@ def recover_IBP(held,observe,Z,W,sig,obs_indices):
     upper_bound = 0
     lower_bound = 0
     for i in range(R):
-        print('row')
-        print(i)
+        #print('row')
+        #print(i)
         f_max = 0
         o_max = 0
         f_error = 0
@@ -206,15 +208,15 @@ def recover_IBP(held,observe,Z,W,sig,obs_indices):
         
         upper_bound = upper_bound + numu - denl
         lower_bound = lower_bound + numl - denu
-        if math.isinf(lower_bound):
-            print("lower bound isinf")
+        #if math.isinf(lower_bound):
+            #print("lower bound isinf")
             
-    print("estimate")
-    print(log_recover)
-    print("lower bound")
-    print(lower_bound)
-    print("upper bound")
-    print(upper_bound)
+    #print("estimate")
+    #print(log_recover)
+    #print("lower bound")
+    #print(lower_bound)
+    #print("upper bound")
+    #print(upper_bound)
     return log_recover
 
 #def recover_IBP(held,observe,Z,W,sig,obs_indices,select):
@@ -314,14 +316,14 @@ def print_posterior(Z,W,data_dim):
         if prob > 0.01:
             pad_binary = np.array(pad_binary)
             reconstruct = np.dot(pad_binary,W)
-            print("pad binary, reconstruct, probability")
-            print(pad_binary)
-            print(prob)
+            #print("pad binary, reconstruct, probability")
+            #print(pad_binary)
+            #print(prob)
             display_W(reconstruct,data_dim,'four')
     
 # The uncollapsed LG model. In a more real setting, one would want to
 # additionally sample/optimize the hyper-parameters!  
-def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,trunc,observe,obs_indices,data_dim=[3,3,2,2]):
+def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,trunc,observe,obs_indices,limit,data_dim=[3,3,2,2]):
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
@@ -329,9 +331,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     dim_count = data_set.shape[1] 
     ll_set = np.zeros( [ iter_count ] )
     lp_set = np.zeros( [ iter_count ] ) 
-    iter_time = [] 
-     
-    
+    iter_time = []  
     #Z = Z_gen
     #Z = np.random.binomial(1,0.25,[N,1])
     #Z = np.random.binomial(1,0.25,[N,1])
@@ -342,13 +342,15 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     pred_prob = 0
     rec_ll = []
     rec = 0
-    #full = generate_gg_blocks()
-    #A = np.zeros((3,36))
-    #A[0,:] = full[0,:]
-    #A[1,:] = full[2,:]
-    #A[2,:] = full[0,:] + full[2,:]
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
+        if mcmc_iter == 0:
+            start = time.time()
+        if mcmc_iter > 0:
+            if np.sum(iter_time) > limit:
+                #print("break on time")
+                #print(np.sum(iter_time))
+                break 
         # Sampling existing A 
         start = time.time()
         A = resample_A(data_set,Z,sigma_a,sigma_n)
@@ -360,7 +362,8 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 try:
                     IBP_one = float(Z[:,k].sum() - Z[n,k])/(N-1)
                 except IndexError:
-                    print('Index Error')
+                    #print('Index Error')
+                    q = 3
                 IBP_zero = 1 - IBP_one
                 Z_one = np.copy(Z)
                 Z_zero = np.copy(Z)
@@ -377,64 +380,66 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 try:
                     Z[n,k] = np.random.binomial(1,update_probability)
                 except ValueError:
-                    print('ValueError')         
+                    #print('ValueError')   
+                    q = 3
         #to quick return, indent 
         # Remove any unused
         # remove corresponding rows in A
-        if 1 == 1:
-            Z_sum = np.array(Z.sum(axis=0))
-            nonzero = list()
-            for j in range(Z_sum.shape[0]):
-                if Z_sum[j] != 0:
-                    nonzero.append(j)
-            Z = Z[:,nonzero] 
-            A = A[nonzero,:]
+        Z_sum = np.array(Z.sum(axis=0))
+        nonzero = list()
+        for j in range(Z_sum.shape[0]):
+            if Z_sum[j] != 0:
+                nonzero.append(j)
+        Z = Z[:,nonzero] 
+        A = A[nonzero,:]
+        active_K = Z.shape[1]
+        if active_K < trunc:   
+            #Z_new = np.random.binomial(1,0.005,[N,1])
+            #Z_new = np.zeros((N,1))
+            Z_new = np.zeros((N,1))
+            Z_new[randint(0,N-1)] = 1
+            mean = np.zeros(dim_count)
+            cov = sigma_a * np.eye(dim_count)
+            A_new = np.random.multivariate_normal(mean,cov)
+            A = np.vstack((A,A_new))
+            Z = np.hstack((Z,Z_new))
             active_K = Z.shape[1]
-            if active_K < trunc:   
-                #Z_new = np.random.binomial(1,0.005,[N,1])
-                #Z_new = np.zeros((N,1))
-                Z_new = np.zeros((N,1))
-                Z_new[randint(0,N-1)] = 1
-                mean = np.zeros(dim_count)
-                cov = sigma_a * np.eye(dim_count)
-                A_new = np.random.multivariate_normal(mean,cov)
-                A = np.vstack((A,A_new))
-                Z = np.hstack((Z,Z_new))
-                active_K = Z.shape[1]
         
-        end = time.time()
-        iter_time.append(end - start)
-        if mcmc_iter%1 == 0:
-            print("iteration: " + str(mcmc_iter))
-            print("Sparsity: " + str(np.sum(Z,axis=0)))
-            print('predictive log likelihood: ' + str(pred_prob))
-            print('recovery log likelihood: ' + str(rec))
-            print("active K: " + str(active_K))
+        #if mcmc_iter%1 == 0:
+#            print("iteration: " + str(mcmc_iter))
+#            print("Sparsity: " + str(np.sum(Z,axis=0)))
+#            print('predictive log likelihood: ' + str(pred_prob))
+#            print('recovery log likelihood: ' + str(rec))
+#            print("active K: " + str(active_K))
             #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
-        if mcmc_iter%30 == 0 and mcmc_iter > 0:
+        if mcmc_iter%10 == 0 and mcmc_iter > 0:
             #Z_trunc,A_trunc = truncate(Z,A,select)
             #pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
             pred_prob = 0
             pred_ll.append(pred_prob)
             rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
             rec_ll.append(rec)
-            z_prob = 1./(N+1)*Z.sum(axis=0)
-            opt = [z > 0.5 for z in z_prob]
-            sums = np.zeros(N)
-            for i in range(N):
-                for j in range(active_K):
-                    if Z[i,j] != opt[j]:
-                        sums[i] += 1
-            sums = list(sums)
-            val = set(sums)
-            val_count = []
-            for v in val:
-                val_count.append((v,sums.count(v)))
-            print("VAL COUNT")
-            print(val_count)
+            end = time.time()
+            iter_time.append(end - start)
+            start = time.time()
+#            z_prob = 1./(N+1)*Z.sum(axis=0)
+#            opt = [z > 0.5 for z in z_prob]
+#            sums = np.zeros(N)
+#            for i in range(N):
+#                for j in range(active_K):
+#                    if Z[i,j] != opt[j]:
+#                        sums[i] += 1
+#            sums = list(sums)
+#            val = set(sums)
+#            val_count = []
+#            for v in val:
+#                val_count.append((v,sums.count(v)))
+#            print("VAL COUNT")
+#            print(val_count)
         ll_set[mcmc_iter]  = log_data_zw(data_set,Z,A,sigma_n)
+    iter_time = np.cumsum(iter_time)
     return Z,A,ll_set,pred_ll,rec_ll,iter_time
 
     

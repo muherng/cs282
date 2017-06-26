@@ -27,19 +27,23 @@ from IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
 from load_data import load
 from itertools import combinations,permutations
 
+args = sys.argv
+#print(args)
 #choose the algorithm
-#algorithm = 'paintbox'
-algorithm = 'IBP'
+algorithm = args[1]
+sig = float(args[2])
+#algorithm = 'IBP'
 filename = 'SVD_reconBreast_Cancer.npz'
+limit = 3600
 full_data = load(filename)
 datapoints,dimension = full_data.shape
-print(full_data.shape)
+#print(full_data.shape)
 train_count = 500
 test_count = 69
 total_data =  train_count + test_count
 #sig = 1./np.sqrt(2*np.pi) #noise
 #sig_w = sig*150 #feature deviation
-sig = 3
+#sig = 3
 sig_w = 150
 sig_test = sig
 #full_data,Z_gen = construct_data(data_dim,data_count + held_out,sig,data_type)
@@ -64,42 +68,46 @@ obs = 0.7 #fraction observed
 dim_indices = [i for i in range(dimension)]
 #obs_indices = np.random.choice(dimension,int(dimension*obs))
 obs_indices = [i for i in range(int(dimension*obs))]
-print(obs_indices)
+#print(obs_indices)
 observe = test[:,obs_indices]
-print(observe.shape)
+#print(observe.shape)
 
 if algorithm == 'IBP':
     trunc = 15
-    iterate = 400
+    iterate = 25
     alpha = 2.0
     select = 10
-    print("test shape")
-    print(test.shape)
-    Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,sig_w,iterate,select,trunc,observe,obs_indices)
-    Z_trunc,W_trunc = truncate(Z,W,select)
+    #print("test shape")
+    #print(test.shape)
+    Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,sig_w,iterate,select,trunc,observe,obs_indices,limit)
+    zip_list = zip(iter_time,rec_ll)
+    for z in zip_list:
+        print(z)
+    #Z_trunc,W_trunc = truncate(Z,W,select)
     #print_posterior(Z_trunc,W_trunc,data_dim)
-    recover_ll = recover_IBP(test,observe,Z,W,sig_test,obs_indices)
-    print("Log Recovery")
-    print(recover_ll)
-    print("End Uncollapsed IBP")
-    np.savetxt("pred.txt", pred_ll)
-    np.savetxt("rec.txt", rec_ll)
-    np.savetxt("time.txt", iter_time)
+    #recover_ll = recover_IBP(test,observe,Z,W,sig_test,obs_indices)
+    #print("Log Recovery")
+    #print(recover_ll)
+    #print("End Uncollapsed IBP")
+    #np.savetxt("rec" + process + ".txt", rec_ll)
+    #np.savetxt("time" + process + ".txt", iter_time)
 
 if algorithm == 'paintbox':
     trunc = 15 #truncate active features
     log_res = 10 #log of res
     hold = 300 #hold resolution for # iterations
-    iterate = 3000
+    iterate = 300
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
-    outputs = upaintbox_sample(log_res,hold,train,test,ext,sig_test,sig_w,iterate,K,trunc,obs_indices)
+    outputs = upaintbox_sample(log_res,hold,train,test,ext,sig_test,sig_w,iterate,K,trunc,obs_indices,limit)
     ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
+    zip_list = zip(iter_time,rec_ll)
+    for z in zip_list:
+        print(z)
     #print_paintbox(tree,W,data_dim,flag)
-    recover_ll = recover_paintbox(test,observe,W,tree,sig_test,obs_indices)
-    print("Log Recovery")
-    print(recover_ll)
-    print("End Paintbox Inference")
-    np.savetxt("pred.txt", pred_ll)
-    np.savetxt("rec.txt", rec_ll)
-    np.savetxt("time.txt", iter_time)
+    #recover_ll = recover_paintbox(test,observe,W,tree,sig_test,obs_indices)
+    #print("Log Recovery")
+    #print(recover_ll)
+    #print("End Paintbox Inference")
+    #np.savetxt("rec" + process + ".txt", rec_ll)
+    #np.savetxt("time" + process + ".txt", iter_time)
