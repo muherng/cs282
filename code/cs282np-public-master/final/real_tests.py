@@ -34,7 +34,7 @@ algorithm = args[1]
 sig = float(args[2])
 #algorithm = 'IBP'
 filename = 'SVD_reconBreast_Cancer.npz'
-limit = 3600
+limit = 10000
 full_data = load(filename)
 datapoints,dimension = full_data.shape
 #print(full_data.shape)
@@ -73,8 +73,8 @@ observe = test[:,obs_indices]
 #print(observe.shape)
 
 if algorithm == 'IBP':
-    trunc = 15
-    iterate = 25
+    trunc = 12
+    iterate = 800
     alpha = 2.0
     select = 10
     #print("test shape")
@@ -93,10 +93,10 @@ if algorithm == 'IBP':
     #np.savetxt("time" + process + ".txt", iter_time)
 
 if algorithm == 'paintbox':
-    trunc = 15 #truncate active features
+    trunc = 12 #truncate active features
     log_res = 10 #log of res
     hold = 300 #hold resolution for # iterations
-    iterate = 300
+    iterate = 3000
     K = 1 #start with K features
     ext = 1 #draw one new feature per iteration
     outputs = upaintbox_sample(log_res,hold,train,test,ext,sig_test,sig_w,iterate,K,trunc,obs_indices,limit)

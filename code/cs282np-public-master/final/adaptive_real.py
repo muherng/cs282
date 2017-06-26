@@ -600,7 +600,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             F,D = get_FD(tree)
             f_count.append(F)
             #recovered log likelihood
-            if it%100 == 0 and it > 0:
+            if it%150 == 0 and it > 0:
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)

@@ -344,7 +344,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     rec = 0
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
-        if mcmc_iter == 0:
+	if mcmc_iter == 0:
             start = time.time()
         if mcmc_iter > 0:
             if np.sum(iter_time) > limit:
@@ -414,7 +414,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
-        if mcmc_iter%10 == 0 and mcmc_iter > 0:
+        if mcmc_iter%50 == 0 and mcmc_iter > 0:
             #Z_trunc,A_trunc = truncate(Z,A,select)
             #pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
             pred_prob = 0
