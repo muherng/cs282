@@ -533,7 +533,7 @@ def recover_paintbox(held,observe,W,tree,sig,obs_indices):
     #print(upper_bound)
     return log_recover
     
-def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,obs_indices,limit,data_dim = [3,3,2,2]):
+def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,obs_indices,limit,Z_init=[],W_init=[],data_dim = [3,3,2,2],init=False):
     #print('time limit')
     #print(limit)
     small_x,small_y,big_x,big_y = data_dim
@@ -544,11 +544,15 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
     res = 1
     tree = gen_tree(K,res)
     ctree,ptree = tree
-    Z = draw_Z_tree(tree,N)
+    if init:
+        Z = draw_Z_tree(tree,N)
+        W = W_init
+    else:
+        Z = draw_Z_tree(tree,N)
+        W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     #Z = np.loadtxt('assignments.txt')
     #print(Z)
     #W = sample_W(Y,Z,sig,sig_w)
-    W = np.reshape(np.random.normal(0,sig_w,K*T),(K,T))
     #W = np.loadtxt('features.txt')
 #    full = generate_gg_blocks()
 #    W = np.zeros((3,T))
@@ -586,11 +590,11 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             N,K = Z.shape
             #sample Z
             Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
-            #if it%10 == 0:
-                #print("iteration: " + str(it))
-                #print("Sparsity: " + str(np.sum(Z,axis=0)))
-                #print('predictive log likelihood: ' + str(pred))
-                #print('recover log likelihood: ' + str(rec))
+#            if it%10 == 0:
+#                print("iteration: " + str(it))
+#                print("Sparsity: " + str(np.sum(Z,axis=0)))
+#                #print('predictive log likelihood: ' + str(pred))
+#                print('recover log likelihood: ' + str(rec))
             #sample paintbox
             tree,lapse = sample_pb(Z,tree,res)
             #sample W        
@@ -600,7 +604,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             F,D = get_FD(tree)
             f_count.append(F)
             #recovered log likelihood
-            if it%150 == 0 and it > 0:
+            if it%5 == 0 and it > 0:
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)

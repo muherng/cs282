@@ -76,10 +76,14 @@ if algorithm == 'IBP':
     trunc = 12
     iterate = 800
     alpha = 2.0
+    #dummy variable 
+    #kept around because we may have to truncate at future date
     select = 10
     #print("test shape")
     #print(test.shape)
-    Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,sig_w,iterate,select,trunc,observe,obs_indices,limit)
+    Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,
+                                                         sig_w,iterate,select,trunc,
+                                                         observe,obs_indices,limit)
     zip_list = zip(iter_time,rec_ll)
     for z in zip_list:
         print(z)
@@ -95,11 +99,27 @@ if algorithm == 'IBP':
 if algorithm == 'paintbox':
     trunc = 12 #truncate active features
     log_res = 10 #log of res
-    hold = 300 #hold resolution for # iterations
-    iterate = 3000
-    K = 1 #start with K features
-    ext = 1 #draw one new feature per iteration
-    outputs = upaintbox_sample(log_res,hold,train,test,ext,sig_test,sig_w,iterate,K,trunc,obs_indices,limit)
+    hold = 100 #hold resolution for # iterations
+    iterate = 10
+    initialize = True
+    if initialize:
+        alpha = 2.0
+        pre_trunc = 10
+        init_iter = 10
+        #dummy variable
+        select = 10
+        Z_init,W_init,_,_,_,_ = ugibbs_sampler(train,test,alpha,
+                                                    sig_test,sig_w,init_iter,
+                                                    select,pre_trunc,observe,
+                                                    obs_indices,limit,init=initialize)
+        print('initial recover log likelihood:' + str(recover_IBP(test,observe,Z_init,W_init,sig,obs_indices)))
+        K = Z_init.shape[1]
+    else:
+        K = 1 #start with K features
+    ext = 0 #draw one new feature per iteration
+    outputs = upaintbox_sample(log_res,hold,train,test,ext,
+                               sig_test,sig_w,iterate,K,trunc,
+                               obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize)
     ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
     zip_list = zip(iter_time,rec_ll)
     for z in zip_list:
