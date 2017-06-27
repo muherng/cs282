@@ -105,14 +105,19 @@ if algorithm == 'paintbox':
     if initialize:
         alpha = 2.0
         pre_trunc = 12
-        init_iter = 100
+        init_iter = 300
         #dummy variable
         select = 10
-        Z_init,W_init,_,_,_,_ = ugibbs_sampler(train,test,alpha,
+        Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
                                                     sig_test,sig_w,init_iter,
                                                     select,pre_trunc,observe,
                                                     obs_indices,limit,init=initialize)
-        print('initial recover log likelihood:' + str(recover_IBP(test,observe,Z_init,W_init,sig,obs_indices)))
+    	print('IBP')
+	zip_list = zip(iter_time,rec_ll)
+	for z in zip_list:
+            print(z)
+	#print('initial recover log likelihood:'
+	#	 + str(recover_IBP(test,observe,Z_init,W_init,sig,obs_indices)))
         K = Z_init.shape[1]
     else:
         K = 1 #start with K features
@@ -122,6 +127,7 @@ if algorithm == 'paintbox':
                                obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize)
     ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
     zip_list = zip(iter_time,rec_ll)
+    print('paintbox')
     for z in zip_list:
         print(z)
     #print_paintbox(tree,W,data_dim,flag)
