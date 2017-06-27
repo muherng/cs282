@@ -100,12 +100,12 @@ if algorithm == 'paintbox':
     trunc = 12 #truncate active features
     log_res = 10 #log of res
     hold = 100 #hold resolution for # iterations
-    iterate = 10
+    iterate = 1000
     initialize = True
     if initialize:
         alpha = 2.0
-        pre_trunc = 10
-        init_iter = 10
+        pre_trunc = 12
+        init_iter = 100
         #dummy variable
         select = 10
         Z_init,W_init,_,_,_,_ = ugibbs_sampler(train,test,alpha,
