@@ -5,14 +5,14 @@ args = sys.argv
 print(args)
 number_runs = args[1]
 alg_type = ['paintbox']
-param = [3,5]
+param = [3]
 for alg in alg_type:
     for par in param:
         fo = open("run" + alg + str(par) + ".sh", "w")
         fo.write("#!/bin/bash\n")
         fo.write("#BATCH -J single_fouriernetwork\n")
-        fo.write("#SBATCH -o yr" + alg + str(par) + "_%a.out\n")
-        fo.write("#SBATCH -e yr" + alg +str(par)+ "_%a.err\n")
+        fo.write("#SBATCH -o pl" + alg + str(par) + "_%a.out\n")
+        fo.write("#SBATCH -e pl" + alg +str(par)+ "_%a.err\n")
         fo.write("#SBATCH -N 1\n")
         fo.write("#SBATCH -n 32\n")
         fo.write("#SBATCH -t 0-40:00\n")
