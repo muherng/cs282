@@ -105,7 +105,7 @@ if algorithm == 'paintbox':
     if initialize:
         alpha = 2.0
         pre_trunc = 12
-        init_iter = 300
+        init_iter = 200
         #dummy variable
         select = 10
         Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,

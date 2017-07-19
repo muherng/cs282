@@ -415,7 +415,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
         
         # Compute likelihood and prior 
 	#beware of init variable--logically unsound
-        if mcmc_iter%50 == 49 and mcmc_iter > 0 and init:
+        if mcmc_iter%5 == 4 and mcmc_iter > 0 and init:
             #Z_trunc,A_trunc = truncate(Z,A,select)
             #pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
 	    pred_prob = 0
