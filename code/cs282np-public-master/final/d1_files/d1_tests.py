@@ -22,17 +22,18 @@ import time
 from varIBP import run_vi
 from IBP import ugibbs_sampler
 import sys
-from adaptive_real import upaintbox_sample,print_paintbox,recover_paintbox
-from IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
+from d1_paintbox import upaintbox_sample,print_paintbox,recover_paintbox
+from d1_IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
 from load_data import load
 from itertools import combinations,permutations
 
 args = sys.argv
 #print(args)
 #choose the algorithm
-algorithm = args[1]
-sig = float(args[2])
-#algorithm = 'IBP'
+#algorithm = args[1]
+#sig = float(args[2])
+algorithm = 'paintbox'
+sig = 3
 filename = 'SVD_reconBreast_Cancer.npz'
 limit = 10000
 full_data = load(filename)

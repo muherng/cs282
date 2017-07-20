@@ -172,7 +172,7 @@ def add_feature(i,Y,Z,W,tree,vec,prior,sig,sig_w):
         vec = get_vec(tree)
     return (Z,W,tree,vec)
 
-def sample_Z(Y,Z,W,sig,sig_w,tree):
+def sample_Z(Y,Z,W,sig,tree):
     N,T = Y.shape
     N,K = Z.shape
     prob_matrix = np.zeros([N,K])
@@ -460,7 +460,31 @@ def cgibbs_sample(Y,sig,sig_w,iterate,D,F,N,T):
         ll_list.append(log_data_zw(Y,Z,W,sig) + Z_vec(Z,vec,D) + log_w_sig(W,sig))
     
     return (ll_list,Z,W,pb)
-   
+
+def sample_recover(held,observe,W,tree,sig,obs_indices):
+    N,obs = observe.shape 
+    R,T = held.shape
+    K,T = W.shape
+    log_recover = 0
+    vec = get_vec(tree)
+    W_obs = W[:,obs_indices]
+    #initialize Z
+    Z = draw_Z_tree(tree,R)
+    indices = [i for i in range(T)]
+    hidden = [x for x in indices if x not in obs_indices]
+    #print(hidden)
+    iterate = 50
+    for it in range(iterate):         
+        N,K = Z.shape
+        #sample Z
+        Z,prob_matrix = sample_Z(held[:,obs_indices],Z,W_obs,sig,tree)
+    #print("sampled Z")
+    #print(Z)
+    for row in Z:
+        log_recover += np.log(Z_paintbox(row,vec))
+    log_recover += log_data_zw(held[:,hidden],Z,W[:,hidden],sig) 
+    return log_recover
+    
 def recover_paintbox(held,observe,W,tree,sig,obs_indices):
     N,obs = observe.shape 
     R,T = held.shape
@@ -587,12 +611,12 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             start = time.time()
             N,K = Z.shape
             #sample Z
-            Z,prob_matrix = sample_Z(Y,Z,W,sig,sig_w,tree)
-#            if it%10 == 0:
-#                print("iteration: " + str(it))
-#                print("Sparsity: " + str(np.sum(Z,axis=0)))
-#                #print('predictive log likelihood: ' + str(pred))
-#                print('recover log likelihood: ' + str(rec))
+            Z,prob_matrix = sample_Z(Y,Z,W,sig,tree)
+            if it%10 == 0:
+                print("iteration: " + str(it))
+                print("Sparsity: " + str(np.sum(Z,axis=0)))
+                #print('predictive log likelihood: ' + str(pred))
+                print('recover log likelihood: ' + str(rec))
             #sample paintbox
             tree,lapse = sample_pb(Z,tree,res)
             #sample W        
@@ -602,11 +626,12 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             F,D = get_FD(tree)
             f_count.append(F)
             #recovered log likelihood
-            if it%50 == 49 and it > 0:
+            if it%100 == 99 and it > 0:
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)
-                rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
+                rec = sample_recover(held_out,observe,W,tree,sig,obs_indices)
+                #rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
                 rec_ll.append(rec)
                 end = time.time()
                 iter_time.append(end - start)
@@ -793,3 +818,5 @@ if __name__ == "__main__":
 #    pylab.xlabel("Time")
 #    pylab.ylabel("Log Likelihood")
 #    pylab.legend(loc='upper left')
+
+
