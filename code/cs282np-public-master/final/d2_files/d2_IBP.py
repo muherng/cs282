@@ -287,8 +287,6 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     data_count = data_set.shape[0]
     X = data_set
     N = data_count
-    print("this is N")
-    print(N)
     K_max = 5
     dim_count = data_set.shape[1] 
     ll_set = np.zeros( [ iter_count ] )
@@ -367,13 +365,13 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
             Z = np.hstack((Z,Z_new))
             active_K = Z.shape[1]
         
-        if mcmc_iter%1 == 0:
-            print("iteration: " + str(mcmc_iter))
-            print("Sparsity: " + str(np.sum(Z,axis=0)))
-            print('predictive log likelihood: ' + str(pred_prob))
-            print('recovery log likelihood: ' + str(rec))
-            print("active K: " + str(active_K))
-            #print_posterior(Z,A,data_dim)
+#        if mcmc_iter%1 == 0:
+#            print("iteration: " + str(mcmc_iter))
+#            print("Sparsity: " + str(np.sum(Z,axis=0)))
+#            print('predictive log likelihood: ' + str(pred_prob))
+#            print('recovery log likelihood: ' + str(rec))
+#            print("active K: " + str(active_K))
+#            #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
         #beware of init variable--logically unsound

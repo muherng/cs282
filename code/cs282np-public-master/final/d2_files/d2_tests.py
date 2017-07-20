@@ -33,13 +33,12 @@ args = sys.argv
 #algorithm = args[1]
 #sig = float(args[2])
 algorithm = 'paintbox'
-sig = 0.01
+sig = 0.015
 #filename = 'SVD_reconBreast_Cancer.npz'
 filename = 'SVD_reconHubble_small.npz'
 limit = 10000
 full_data = load(filename)
 datapoints,dimension = full_data.shape
-print(full_data.shape)
 train_count = 1000
 test_count = 100
 total_data =  train_count + test_count
@@ -72,11 +71,7 @@ dim_indices = [i for i in range(dimension)]
 obs_indices = [i for i in range(int(dimension*obs))]
 #print(obs_indices)
 observe = test[:,obs_indices]
-print(train)
-print('test data')
-print(test)
 #print(observe.shape)
-print('any')
 if algorithm == 'IBP':
     trunc = 12
     iterate = 800
@@ -103,9 +98,9 @@ if algorithm == 'IBP':
 
 if algorithm == 'paintbox':
     trunc = 10 #truncate active features
-    log_res = 10 #log of res
+    log_res = 20 #log of res
     hold = 100 #hold resolution for # iterations
-    iterate = 1000
+    iterate = 2000
     initialize = True
     if initialize:
         alpha = 2.0
@@ -114,12 +109,12 @@ if algorithm == 'paintbox':
         init_iter = 30
         #dummy variable
         select = 10
-        print('initialize')
         Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
                                                     sig_test,sig_w,init_iter,
                                                     select,pre_trunc,observe,
                                                     obs_indices,limit,init=initialize)
         zip_list = zip(iter_time,rec_ll)
+        print('IBP')
         for z in zip_list:
             print(z)
             K = Z_init.shape[1]

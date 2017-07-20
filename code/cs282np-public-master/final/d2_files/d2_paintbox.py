@@ -473,7 +473,7 @@ def sample_recover(held,observe,W,tree,sig,obs_indices):
     indices = [i for i in range(T)]
     hidden = [x for x in indices if x not in obs_indices]
     #print(hidden)
-    iterate = 50
+    iterate = 100
     for it in range(iterate):         
         N,K = Z.shape
         #sample Z
@@ -612,11 +612,11 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             N,K = Z.shape
             #sample Z
             Z,prob_matrix = sample_Z(Y,Z,W,sig,tree)
-            if it%10 == 0:
-                print("iteration: " + str(it))
-                print("Sparsity: " + str(np.sum(Z,axis=0)))
-                #print('predictive log likelihood: ' + str(pred))
-                print('recover log likelihood: ' + str(rec))
+#            if it%10 == 0:
+#                print("iteration: " + str(it))
+#                print("Sparsity: " + str(np.sum(Z,axis=0)))
+#                #print('predictive log likelihood: ' + str(pred))
+#                print('recover log likelihood: ' + str(rec))
             #sample paintbox
             tree,lapse = sample_pb(Z,tree,res)
             #sample W        
@@ -626,7 +626,7 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
             F,D = get_FD(tree)
             f_count.append(F)
             #recovered log likelihood
-            if it%100 == 99 and it > 0:
+            if it%50 == 49 and it > 0:
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)
