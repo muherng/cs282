@@ -38,9 +38,9 @@ def update(tree):
         for i in range(1,F):
             for j in range(2**(i+1)):
                 if j%2 == 0:
-                    ptree[i,j] = ptree[i-1,j/2]*(1 - ctree[i,j/2])
+                    ptree[i,j] = ptree[i-1,int(j/2)]*(1 - ctree[i,int(j/2)])
                 else: 
-                    ptree[i,j] = ptree[i-1,j/2]*ctree[i,j/2]
+                    ptree[i,j] = ptree[i-1,int(j/2)]*ctree[i,int(j/2)]
     return (ctree,ptree)
     
 #feature is a vector of features to be dropped

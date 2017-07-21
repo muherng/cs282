@@ -418,7 +418,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
         if mcmc_iter%5 == 4 and mcmc_iter > 0 and init:
             #Z_trunc,A_trunc = truncate(Z,A,select)
             #pred_prob = pred_ll_IBP(held_out, Z_trunc, A_trunc,sigma_n)
-	    pred_prob = 0
+            d_prob = 0
             pred_ll.append(pred_prob)
             rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
             rec_ll.append(rec)

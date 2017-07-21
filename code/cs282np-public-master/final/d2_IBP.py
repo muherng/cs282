@@ -371,7 +371,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
 #            print('predictive log likelihood: ' + str(pred_prob))
 #            print('recovery log likelihood: ' + str(rec))
 #            print("active K: " + str(active_K))
-#            #print_posterior(Z,A,data_dim)
+            #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
         #beware of init variable--logically unsound

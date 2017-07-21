@@ -34,7 +34,8 @@ algorithm = args[1]
 sig = float(args[2])
 obs = float(args[3]) #fraction observed
 #algorithm = 'paintbox'
-#sig = 0.015
+#sig = 0.02
+#obs = 0.7
 #filename = 'SVD_reconBreast_Cancer.npz'
 filename = 'SVD_reconHubble_small.npz'
 limit = 10000
@@ -99,15 +100,15 @@ if algorithm == 'IBP':
 
 if algorithm == 'paintbox':
     trunc = 10 #truncate active features
-    log_res = 20 #log of res
+    log_res = 15 #log of res
     hold = 100 #hold resolution for # iterations
-    iterate = 2000
+    iterate = 1500
     initialize = True
     if initialize:
         alpha = 2.0
         #was working for 10
         pre_trunc = 10
-        init_iter = 30
+        init_iter = 50
         #dummy variable
         select = 10
         Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
