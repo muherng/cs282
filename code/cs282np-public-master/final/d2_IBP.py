@@ -371,15 +371,14 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
 #            print('predictive log likelihood: ' + str(pred_prob))
 #            print('recovery log likelihood: ' + str(rec))
 #            print("active K: " + str(active_K))
-            #print_posterior(Z,A,data_dim)
         
         # Compute likelihood and prior 
         #beware of init variable--logically unsound
         if mcmc_iter%5 == 4 and mcmc_iter > 0 and init:
             pred_prob = 0
             pred_ll.append(pred_prob)
-            #rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
-            rec = sample_recover(held_out,observe,Z,A,sigma_n,obs_indices)
+            rec = recover_IBP(held_out,observe,Z,A,sigma_n,obs_indices)
+            #rec = sample_recover(held_out,observe,Z,A,sigma_n,obs_indices)
             rec_ll.append(rec)
             end = time.time()
             iter_time.append(end - start)

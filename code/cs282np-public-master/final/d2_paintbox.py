@@ -630,8 +630,8 @@ def upaintbox_sample(log_res,hold,Y,held_out,ext,sig,sig_w,iterate,K,truncate,ob
                 #pred = pred_ll_paintbox(held_out, W, tree, sig)
                 pred = 0
                 pred_ll.append(pred)
-                rec = sample_recover(held_out,observe,W,tree,sig,obs_indices)
-                #rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
+                #rec = sample_recover(held_out,observe,W,tree,sig,obs_indices)
+                rec = recover_paintbox(held_out,observe,W,tree,sig,obs_indices)
                 rec_ll.append(rec)
                 end = time.time()
                 iter_time.append(end - start)

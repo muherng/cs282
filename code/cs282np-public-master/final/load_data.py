@@ -1,8 +1,8 @@
 import numpy as np 
 import os 
 
-path = '/Users/math/Documents/myau/cs282/code/cs282np-public-master/final/'
-#path = '/n/regal/doshi-velez_lab/mamasood/NMF_Data/'
+#path = '/Users/math/Documents/myau/cs282/code/cs282np-public-master/final/'
+path = '/n/regal/doshi-velez_lab/mamasood/NMF_Data/'
 #path = '/Users/morrisyau/data/NMF_Data/'
 #data = np.load(path + 'SVD_reconHubble_small.npz')
 
