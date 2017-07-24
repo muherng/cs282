@@ -33,19 +33,26 @@ args = sys.argv
 algorithm = args[1]
 sig = float(args[2])
 obs = float(args[3]) #fraction observed
+
+#good setting: .01 or .005, obs 0.7, first 30
 #algorithm = 'paintbox'
-#sig = 0.01
-#obs = 0.8
+#sig = 0.0001
+#obs = 0.7
+init_iter = 50
+display= False
 #filename = 'SVD_reconBreast_Cancer.npz'
 #filename = 'SVD_reconHubble_small.npz'
-filename = 'SVD_reconPaviaU.npz'
+#filename = 'SVD_reconPaviaU.npz'
+#filename = 'SVD_reconBotswana.npz'
+filename = 'SVD_reconUrban.npz'
 limit = 10000
 full_data = load(filename)
 
-train_count = 1000
+train_count = 500
 test_count = 100
 total_data =  train_count + test_count
-full_data = full_data[:total_data,:]
+#partial = [i*3 for i in range(30)]
+full_data = full_data[:total_data,:30]
 full_data = full_data*.001
 datapoints,dimension = full_data.shape
 #sig = 1./np.sqrt(2*np.pi) #noise
@@ -73,8 +80,8 @@ test = select_data[test_indices,:]
 #we observe half the signal and recover the other half
 #obs = 0.7 #fraction observed
 dim_indices = [i for i in range(dimension)]
-#obs_indices = np.random.choice(dimension,int(dimension*obs))
-obs_indices = [i for i in range(int(dimension*obs))]
+obs_indices = np.random.choice(dimension,int(dimension*obs))
+#obs_indices = [i for i in range(int(dimension*obs))]
 #print(obs_indices)
 observe = test[:,obs_indices]
 #print(observe.shape)
@@ -103,22 +110,22 @@ if algorithm == 'IBP':
     #np.savetxt("time" + process + ".txt", iter_time)
 
 if algorithm == 'paintbox':
-    trunc = 10 #truncate active features
-    log_res = 15 #log of res
+    trunc = 12 #truncate active features
+    log_res = 10 #log of res
     hold = 100 #hold resolution for # iterations
-    iterate = 1500
+    iterate = 1000
     initialize = True
     if initialize:
         alpha = 2.0
         #was working for 10
-        pre_trunc = 10
-        init_iter = 50
+        pre_trunc = 12  
+        #init_iter = 30
         #dummy variable
         select = 10
         Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
                                                     sig_test,sig_w,init_iter,
                                                     select,pre_trunc,observe,
-                                                    obs_indices,limit,init=initialize)
+                                                    obs_indices,limit,init=initialize,display=display)
         zip_list = zip(iter_time,rec_ll)
         print('IBP')
         for z in zip_list:
@@ -129,7 +136,7 @@ if algorithm == 'paintbox':
     ext = 0 #draw one new feature per iteration
     outputs = upaintbox_sample(log_res,hold,train,test,ext,
                                sig_test,sig_w,iterate,K,trunc,
-                               obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize)
+                               obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize,display=display)
     ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
     zip_list = zip(iter_time,rec_ll)
     print('paintbox')
