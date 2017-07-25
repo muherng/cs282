@@ -38,7 +38,7 @@ obs = float(args[3]) #fraction observed
 #algorithm = 'paintbox'
 #sig = 0.0001
 #obs = 0.7
-init_iter = 5
+init_iter = 50
 display= False
 #filename = 'SVD_reconBreast_Cancer.npz'
 #filename = 'SVD_reconHubble_small.npz'
@@ -113,7 +113,7 @@ if algorithm == 'paintbox':
     trunc = 12 #truncate active features
     log_res = 10 #log of res
     hold = 100 #hold resolution for # iterations
-    iterate = 50
+    iterate = 1000
     initialize = True
     if initialize:
         alpha = 2.0

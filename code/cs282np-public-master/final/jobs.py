@@ -5,7 +5,7 @@ args = sys.argv
 print(args)
 number_runs = args[1]
 alg_type = ['paintbox']
-param = [.002,.001,.0005, .0001]
+param = [.002,.001,.0005]
 held = [.7]
 for alg in alg_type:
     for par in param:
