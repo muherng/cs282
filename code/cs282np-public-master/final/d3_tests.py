@@ -29,9 +29,10 @@ args = sys.argv
 #choose the algorithm
 filename = args[1]
 sig = float(args[2])
-#obs = float(args[3]) #fraction observed
+obs = float(args[3]) #fraction observed
 algorithm = 'paintbox'
-obs = 0.7
+init_iter = 50
+#obs = 0.7
 limit = 10000
 full_data = load(filename)
 train_count = 500
@@ -68,15 +69,15 @@ obs_indices = np.random.choice(dimension,int(dimension*obs))
 #obs_indices = [i for i in range(int(dimension*obs))]
 #print(obs_indices)
 observe = test[:,obs_indices]
-trunc = 10 #truncate active features
+trunc = 12 #truncate active features
 log_res = 10 #log of res
 hold = 100 #hold resolution for # iterations
 iterate = 1000
+initialize = 1
 if initialize:
     alpha = 2.0
     #was working for 10
-    pre_trunc = 10
-    init_iter = 50
+    pre_trunc = 12
     #dummy variable
     select = 10
     Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
