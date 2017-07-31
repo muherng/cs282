@@ -5,6 +5,7 @@ print(args)
 number_runs = args[1]
 param = [.003,.001,.0003]
 param = [.003,.0003]
+param = [.0003]
 held = [.7]
 #path = '/n/regal/doshi-velez_lab/mamasood/NMF_Data/'
 files = ['SVD_recon20NG.npz','SVD_reconCupriteS1_F224.npz','SVD_reconCupriteS1_R188.npz','SVD_reconfaces_CBCL.npz',

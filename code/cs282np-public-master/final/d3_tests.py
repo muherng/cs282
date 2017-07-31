@@ -17,21 +17,24 @@ import math
 from tree_paintbox import gen_tree,update,add,get_vec,access,get_FD,drop_tree,conditional_draw
 import time
 from varIBP import run_vi
-from IBP import ugibbs_sampler
+#from IBP import ugibbs_sampler
 import sys
-from d2_paintbox import upaintbox_sample,print_paintbox,recover_paintbox
-from d2_IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
+from d3_paintbox import upaintbox_sample,print_paintbox,recover_paintbox
+from d3_IBP import ugibbs_sampler,print_posterior,truncate,recover_IBP
 from load_data import load
 from itertools import combinations,permutations
 
 
 args = sys.argv
 #choose the algorithm
-filename = args[1]
-sig = float(args[2])
-obs = float(args[3]) #fraction observed
-algorithm = 'paintbox'
-init_iter = 50
+#filename = args[1]
+filename = 'SVD_reconUrban_F210.npz'
+sig = float(args[1])
+obs = float(args[2]) #fraction observed
+#sig = .0003
+#obs = 0.7
+init_iter = 10
+iterate = 100
 #obs = 0.7
 limit = 10000
 full_data = load(filename)
@@ -72,7 +75,6 @@ observe = test[:,obs_indices]
 trunc = 12 #truncate active features
 log_res = 10 #log of res
 hold = 100 #hold resolution for # iterations
-iterate = 1000
 initialize = 1
 if initialize:
     alpha = 2.0

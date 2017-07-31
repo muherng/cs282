@@ -30,20 +30,17 @@ from itertools import combinations,permutations
 args = sys.argv
 #print(args)
 #choose the algorithm
-algorithm = args[1]
-sig = float(args[2])
-obs = float(args[3]) #fraction observed
+#algorithm = args[1]
+sig = float(args[1])
+obs = float(args[2]) #fraction observed
 
 #good setting: .01 or .005, obs 0.7, first 30
 #algorithm = 'paintbox'
-#sig = 0.0001
+#sig = 0.001
 #obs = 0.7
-init_iter = 50
+init_iter = 10
+iterate = 10
 display= False
-#filename = 'SVD_reconBreast_Cancer.npz'
-#filename = 'SVD_reconHubble_small.npz'
-#filename = 'SVD_reconPaviaU.npz'
-#filename = 'SVD_reconBotswana.npz'
 filename = 'SVD_reconUrban.npz'
 limit = 10000
 full_data = load(filename)
@@ -51,25 +48,19 @@ full_data = load(filename)
 train_count = 500
 test_count = 100
 total_data =  train_count + test_count
-#partial = [i*3 for i in range(30)]
 full_data = full_data[:total_data,:30]
 full_data = full_data*.001
 datapoints,dimension = full_data.shape
-#sig = 1./np.sqrt(2*np.pi) #noise
-#sig_w = sig*150 #feature deviation
-#sig = 3
+
 sig_w = 0.1
 sig_test = sig
-#full_data,Z_gen = construct_data(data_dim,data_count + held_out,sig,data_type)
 if train_count + test_count > datapoints:
     data_count = datapoints
-    
-#indices = list(combinations([i for i in range(datapoints)],total_data))
+
 index = np.zeros(datapoints)
 index[:total_data] = np.ones(total_data)
 indices = np.where(np.random.permutation(index) == 1)[0]
 select_data = full_data[indices,:]
-#train_indices = list(combinations([i for i in range(total_data)],train_coabs
 index = np.zeros(total_data)
 index[:train_count] = np.ones(train_count)
 train_indices = np.where(np.random.permutation(index) == 1)[0]
@@ -77,75 +68,38 @@ train = select_data[train_indices,:]
 all_indices = [i for i in range(total_data)]
 test_indices = [item for item in all_indices if item not in train_indices]
 test = select_data[test_indices,:]
-#we observe half the signal and recover the other half
-#obs = 0.7 #fraction observed
 dim_indices = [i for i in range(dimension)]
 obs_indices = np.random.choice(dimension,int(dimension*obs))
 #obs_indices = [i for i in range(int(dimension*obs))]
 #print(obs_indices)
 observe = test[:,obs_indices]
-#print(observe.shape)
-if algorithm == 'IBP':
-    trunc = 12
-    iterate = 800
-    alpha = 2.0
-    #dummy variable 
-    #kept around because we may have to truncate at future date
-    select = 10
-    #print("test shape")
-    #print(test.shape)
-    Z,W,ll_set,pred_ll,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,sig_test,
-                                                         sig_w,iterate,select,trunc,
-                                                         observe,obs_indices,limit)
-    zip_list = zip(iter_time,rec_ll)
-    for z in zip_list:
-        print(z)
-    #Z_trunc,W_trunc = truncate(Z,W,select)
-    #print_posterior(Z_trunc,W_trunc,data_dim)
-    #recover_ll = recover_IBP(test,observe,Z,W,sig_test,obs_indices)
-    #print("Log Recovery")
-    #print(recover_ll)
-    #print("End Uncollapsed IBP")
-    #np.savetxt("rec" + process + ".txt", rec_ll)
-    #np.savetxt("time" + process + ".txt", iter_time)
 
-if algorithm == 'paintbox':
-    trunc = 12 #truncate active features
-    log_res = 10 #log of res
-    hold = 100 #hold resolution for # iterations
-    iterate = 1000
-    initialize = True
-    if initialize:
-        alpha = 2.0
-        #was working for 10
-        pre_trunc = 12  
-        #init_iter = 30
-        #dummy variable
-        select = 10
-        Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
-                                                    sig_test,sig_w,init_iter,
-                                                    select,pre_trunc,observe,
-                                                    obs_indices,limit,init=initialize,display=display)
-        zip_list = zip(iter_time,rec_ll)
-        print('IBP')
-        for z in zip_list:
-            print(z)
-            K = Z_init.shape[1]
-    else:
-        K = 1 #start with K features
-    ext = 0 #draw one new feature per iteration
-    outputs = upaintbox_sample(log_res,hold,train,test,ext,
-                               sig_test,sig_w,iterate,K,trunc,
-                               obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize,display=display)
-    ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
+trunc = 12 #truncate active features
+log_res = 10 #log of res
+hold = 100 #hold resolution for # iterations
+initialize = True
+if initialize:
+    alpha = 2.0
+    pre_trunc = 12  
+    #dummy variable
+    select = 10
+    Z_init,W_init,_,_,rec_ll,iter_time = ugibbs_sampler(train,test,alpha,
+                                                sig_test,sig_w,init_iter,
+                                                select,pre_trunc,observe,
+                                                obs_indices,limit,init=initialize,display=display)
     zip_list = zip(iter_time,rec_ll)
-    print('paintbox')
+    print('IBP')
     for z in zip_list:
         print(z)
-    #print_paintbox(tree,W,data_dim,flag)
-    #recover_ll = recover_paintbox(test,observe,W,tree,sig_test,obs_indices)
-    #print("Log Recovery")
-    #print(recover_ll)
-    #print("End Paintbox Inference")
-    #np.savetxt("rec" + process + ".txt", rec_ll)
-    #np.savetxt("time" + process + ".txt", iter_time)
+        K = Z_init.shape[1]
+else:
+    K = 1 #start with K features
+ext = 0 #draw one new feature per iteration
+outputs = upaintbox_sample(log_res,hold,train,test,ext,
+                           sig_test,sig_w,iterate,K,trunc,
+                           obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize,display=display)
+ll_list,iter_time,f_count,lapse,Z,W,prob_matrix,pred_ll,rec_ll,tree = outputs
+zip_list = zip(iter_time,rec_ll)
+print('paintbox')
+for z in zip_list:
+    print(z)

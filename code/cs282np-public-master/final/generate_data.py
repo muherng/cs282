@@ -313,7 +313,7 @@ def construct_data(data_dim,N,sig,data_type,corr_value=2):
     #Z = np.random.permutation(Z)
     #Y = np.dot(Z,W) + E
     Y = np.dot(Z,W) 
-    display_W(Y[1:10],'four')
+    #display_W(Y[1:10],'four')
     return (Y,Z)  
 
       

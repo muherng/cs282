@@ -4,13 +4,15 @@ import operator
 import matplotlib.pyplot as plt
 import scipy
 from matplotlib import pylab
-path = '/Users/morrisyau/kjdir/klpaintbox'
+#path = '/Users/morrisyau/kjdir/klpaintbox'
+path = '/Users/morrisyau/Documents/paintbox/cs282/code/cs282np-public-master/final/d2_files/d2_runs/klpaintbox'
 runs = 200
 #points = 20
 init = 1
 
 alg_type = ['paintbox']
-param = [.002,.001,.0005]
+#param = [.002,.001,.0005]
+param = [.001]
 held = [.7]
 for alg in alg_type:
     for par in param:
@@ -85,6 +87,24 @@ for alg in alg_type:
             print(path + str(par) + str(he) + ': Paintbox')
             print(paintbox_avg)
             print(error_paintbox)
+            
+            
+            f1 = IBP_avg_time[3:]
+            l1 = IBP_avg[3:]
+            l1.sort()
+            l1_error = error_IBP[3:]
+            
+            f2 = paintbox_avg_time[1:restart]
+            l2 = paintbox_avg[1:restart]
+            l2.sort()
+            l2_error = error_paintbox[1:restart]
+
+            plt.errorbar(f1,l1,marker='o',linestyle='--',color='red',yerr=l1_error)
+            plt.errorbar(f2,l2,marker='o',linestyle='--',color='blue',yerr=l2_error)
+            plt.title("reconstructed log likelihood vs. time")
+            plt.xlabel("time")
+            plt.ylabel("log likelihood")
+            plt.show()
 
 
 #for run in range(1,runs+1):
