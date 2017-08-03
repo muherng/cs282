@@ -31,20 +31,23 @@ args = sys.argv
 #filename = 'SVD_reconUrban_F210.npz'
 #sig = float(args[1])
 #obs = float(args[2]) #fraction observed
-display = True
-sig = .005
+display = False
+sig = .001
 obs = 0.7
-init_iter = 100
-iterate = 1000
+init_iter = 10
+iterate = 100
 limit = 10000
+full_data = np.loadtxt('UN_long.txt')
 full_data = np.loadtxt('UN.txt')
-train_count = 150
-test_count = 40
+full_data = np.loadtxt('UN_noscale.txt')
+full_data = np.loadtxt('UN_longnoscale.txt')
+train_count = 180
+test_count = 16
 total_data =  train_count + test_count
 #full_data = full_data[:total_data,:30]
 maxarray = np.amax(full_data)
-#scale = 1.0/maxarray
-#full_data = scale * full_data
+scale = 1.0/maxarray
+full_data = scale * full_data
 datapoints,dimension = full_data.shape
 sig_w = 0.1
 sig_test = sig
@@ -55,12 +58,16 @@ if train_count + test_count > datapoints:
 #indices = list(combinations([i for i in range(datapoints)],total_data))
 index = np.zeros(datapoints)
 index[:total_data] = np.ones(total_data)
-indices = np.where(np.random.permutation(index) == 1)[0]
+#indices = np.where(np.random.permutation(index) == 1)[0]
+indices = np.loadtxt('indices1.txt')
+indices = indices.astype(int)
 select_data = full_data[indices,:]
 #train_indices = list(combinations([i for i in range(total_data)],train_coabs
 index = np.zeros(total_data)
 index[:train_count] = np.ones(train_count)
-train_indices = np.where(np.random.permutation(index) == 1)[0]
+#train_indices = np.where(np.random.permutation(index) == 1)[0]
+train_indices = np.loadtxt('train_indices1.txt')
+train_indices = train_indices.astype(int)
 train = select_data[train_indices,:]
 all_indices = [i for i in range(total_data)]
 test_indices = [item for item in all_indices if item not in train_indices]
@@ -68,15 +75,28 @@ test = select_data[test_indices,:]
 #we observe half the signal and recover the other half
 #obs = 0.7 #fraction observed
 dim_indices = [i for i in range(dimension)]
-obs_indices = np.random.choice(dimension,int(dimension*obs))
+#obs_indices = np.random.choice(dimension,int(dimension*obs))
+#console 51
+#startign console 53 
+obs_indices = np.loadtxt('obs1.txt')
+obs_indices = obs_indices.astype(int)
 #obs_indices = [i for i in range(int(dimension*obs))]
 #print(obs_indices)
 observe = test[:,obs_indices]
 trunc = 12 #truncate active features
+#print('sig:' + str(sig))
+#print('obs:' + str(obs))
+#print('trunc:' + str(trunc))
+#print('data count:' + str(train_count))
+#print('obs_indices:')
+#print(obs_indices)
+#print('tran_indices')
+#print(train_indices)
+
 log_res = 10 #log of res
 hold = 100 #hold resolution for # iterations
 initialize = 1
-print('getting here')
+#print('getting here')
 if initialize:
     alpha = 2.0
     #was working for 10
@@ -92,9 +112,10 @@ if initialize:
     for z in zip_list:
         print(z)
     K = Z_init.shape[1]
+    #print("SWITCHING TO PAINTBOX")
 else:
     K = 1 #start with K features
-ext = 0 #draw one new feature per iteration
+ext = 1 #draw one new feature per iteration
 outputs = upaintbox_sample(log_res,hold,train,test,ext,
                            sig_test,sig_w,iterate,K,trunc,
                            obs_indices,limit,Z_init=Z_init,W_init=W_init,init=initialize,display=display)

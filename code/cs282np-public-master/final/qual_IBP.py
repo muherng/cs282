@@ -302,7 +302,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
     pred_prob = 0
     rec_ll = []
     rec = 0
-    print('getting further')
+    #print('getting further')
     # MCMC loop 
     for mcmc_iter in range( iter_count ):
         if mcmc_iter == 0:
@@ -344,7 +344,7 @@ def ugibbs_sampler(data_set,held_out,alpha,sigma_n,sigma_a,iter_count,select,tru
                 except ValueError:
                     #print('ValueError')   
                     q = 3
-        print('outer loop')
+        #print('outer loop')
         #to quick return, indent 
         # Remove any unused
         # remove corresponding rows in A
